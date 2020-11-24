@@ -46,7 +46,7 @@ $(document).ready(function() {
             if (text.trim() === '') {
                 return;
             };
-            $messages = $('messages_list');
+            $messages = $('.messages_list');
             $('#user_input').val('');
             // write the message to UI
             messageObject.write(text);
