@@ -13,7 +13,8 @@
     <link rel="stylesheet" type="text/css" href="../static/styles/css/chatbot_ui.css" />
     
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs=" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
     
@@ -34,9 +35,9 @@
                 <!--Widget body-->
                 <div id="chat-body">
                     <div class="nano has-scrollbar" style="height:580px">
-                        <div class="nano-content pad-all" tabindex="0" style="right: -17px;">
-                            <ul class="list-unstyled media-block">
-                                <li class="mar-btm">
+                        <div class="nano-content pad-all" id="chat_content" tabindex="0" style="right: -17px;">
+                            <ul class="list-unstyled media-block messages_list">
+                                <!-- <li class="mar-btm">
                                     <div class="media-body pad-hor">
                                         <div class="speech">
                                             <p class="media-heading">Bot</p>
@@ -100,7 +101,8 @@
                                             </p>
                                         </div>
                                     </div>
-                                </li><li class="mar-btm">
+                                </li>-->
+                                <li class="mar-btm"> 
                                     <div class="media-body pad-hor">
                                         <div class="speech">
                                             <p class="media-heading">Bot</p>
@@ -121,7 +123,8 @@
                                             </p>
                                         </div>
                                     </div>
-                                </li><li class="mar-btm">
+                                </li>
+                                <li class="mar-btm">
                                     <div class="media-body pad-hor">
                                         <div class="speech">
                                             <p class="media-heading">Bot</p>

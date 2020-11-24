@@ -1,4 +1,6 @@
 from flask import Flask, render_template
+from akobot.AKOBot import NLPEngine
+
 app = Flask(__name__, template_folder='templates')
 app.config.update(
     DEBUG=True,
@@ -11,6 +13,7 @@ def chat():
 
 @app.route('/chat', methods=["POST"])
 def process_user_input():
+    # NLPEngine.process(response)
     response = "HEEEEEEEEEEELO AJAX!"
     print("User input received... ")
     return response
