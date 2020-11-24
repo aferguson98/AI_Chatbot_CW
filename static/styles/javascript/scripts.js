@@ -81,7 +81,8 @@ $(document).ready(function() {
         $.ajax({
             type: 'POST',
             url: '/chat',
-            data: user_message,
+            datatype:"json",
+            data: {"user_input" : user_message},
             success: function(output){
                 messageObject.text = output;
                 if (user_message) {

@@ -15,8 +15,9 @@ def chat():
 def process_user_input():
     eng = NLPEngine()
     print("In the python function ")
-    # user_input = request.data.value
-    # eng.process(user_input)
+    user_input = request.form['user_input']
+    print("Input received in main.py", user_input)
+    eng.process(user_input)
     # print("REceived user input", user_input)
     response = "HEEEEEEEEEEELO AJAX!"
     return response
