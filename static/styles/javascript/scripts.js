@@ -85,16 +85,9 @@ function writeMessage(message) {
             // ul of all messaged to which the new one will be appended
             var messagesList = $('#chat_content').contents();
             // building the message element with user message
-            var msgElement = '<li class="mar-btm"><div class="media-body pad-hor'
-            + speechSide
-            + '">'
-            + '<div class="speech"><p class="media-heading">'
-            + whoWroteThis
-            + '</p>' 
-            + localthis.text
-            + '<p class="speech-time"><i class="fa fa-clock-o fa-fw"></i>'
-            + time
-            + '</p></div></div></li>';
+            var msgElement = `<li class="mar-btm"><div class="media-body pad-hor ${speechSide}">
+            <div class="speech"><p class="media-heading">${whoWroteThis}</p>${localthis.text}
+            <p class="speech-time"><i class="fa fa-clock-o fa-fw"></i>${time}</p></div></div></li>`;
             // appending the new message to list of all
             messagesList.append(msgElement);
             $('#chat_content').html(messagesList);
