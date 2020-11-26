@@ -3,32 +3,25 @@ from sqlite3 import Error
 import os.path as path
 
 
-def init_connection(db_file_name):
-    # We assume that the database is in the current directory since this is how
-    # it's laid out at the moment
-    full_path = path.realpath(db_file_name)
+class DBConnection:
+    def __init__(self, db_file_name):
+        # We assume that the database is in the current directory since this
+        # is how it's laid out at the moment
 
-    conn = None
+        BASE_DIR = path.dirname(path.abspath(__file__))
+        full_path = path.join(BASE_DIR, db_file_name)
+        print(full_path)
+        self.conn = None
+        try:
+            self.conn = sqlite3.connect(full_path)
+        except Error as e:
+            print(e)
 
-    try:
-        conn = sqlite3.connect(full_path)
-    except Error as e:
-        print(e)
-
-    return conn
-
-
-# This method will just be used to send queries, it will be changed in the
-# future since different queries require different methods and returns.
-def send_query(conn, query):
-    cur = conn.cursor()
-
-    cur.execute(query)
-
-
-def main():
-    conn = init_connection('AKODatabase.db')
-
-
-if __name__ == "__main__":
-    main()
+    def send_query(self, query, params=None):
+        # This method will just be used to send queries, it will be changed in
+        # the future since different queries require different methods and
+        # returns.
+        if params is None:
+            params = {}
+        cur = self.conn.cursor()
+        return cur.execute(query, params)
