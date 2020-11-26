@@ -27,6 +27,7 @@ class NLPEngine:
         list
             A list of tokens
         """
+        print("Input received in akobot.py", input_text)
         return self.nlp(input_text)
 
 
