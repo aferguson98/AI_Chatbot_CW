@@ -1,112 +1,30 @@
-<!-- The link to this template https://www.bootdey.com/snippets/view/messages-chat-widget#preview -->
 <!doctype html>
 <html lang="en">
-  <head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
-    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet">
-    <!-- <link href="../static/styles/chatbot_ui.css" rel="stylesheet"> -->
-    <link rel="stylesheet" type="text/css" href="../static/styles/css/chatbot_ui.css" />
-    
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
-    
-    <!-- JavaScript link -->
-    <script src="../static/styles/javascript/scripts.js"></script>
-
-    <title>Chatbot</title>
-  </head>
-  <body>
-    <div class="container">
-        <div class="col-md-12 col-lg-6">
-            <div class="panel">
-                <!--Heading-->
-                <div class="panel-heading">
-                    <h3 class="panel-title">Chat</h3>
-                </div>
-        
-                <!--Widget body-->
-                <div id="chat-body">
-                    <div class="nano has-scrollbar" id="chat-window" style="height:580px">
-                        <div class="nano-content pad-all" id="chat_content" tabindex="0" style="right: -17px;">
-                            <ul class="list-unstyled media-block messages_list">
-                                <li class="mar-btm"> 
-                                    <div class="media-body pad-hor">
-                                        <div class="speech">
-                                            <p class="media-heading">Bot</p>
-                                            **say something #bot **
-                                            <p class="speech-time">
-                                                <i class="fa fa-clock-o fa-fw"></i>**Timestamp**
-                                            </p>
-                                        </div>
-                                    </div>
-                                </li>
-                                <li class="mar-btm">
-                                    <div class="media-body pad-hor speech-right">
-                                        <div class="speech">
-                                            <p class="media-heading">You</p>
-                                            **type something #hooman**
-                                            <p class="speech-time">
-                                                <i class="fa fa-clock-o fa-fw"></i> **Timestamp**
-                                            </p>
-                                        </div>
-                                    </div>
-                                </li>
-                                <li class="mar-btm">
-                                    <div class="media-body pad-hor">
-                                        <div class="speech">
-                                            <p class="media-heading">Bot</p>
-                                            Pretium quam vulputate dignissim suspendisse in. Lacus sed turpis tincidunt id aliquet risus feugiat in.
-                                            Sit amet nulla facilisi morbi tempus iaculis urna. Sem et tortor consequat id porta. Morbi tempus iaculis urna id volutpat lacus laoreet.
-                                            Amet nisl purus in mollis nunc.
-                                            <p class="speech-time">
-                                                <i class="fa fa-clock-o fa-fw"></i>**Timestamp**
-                                            </p>
-                                        </div>
-                                    </div>
-                                </li>
-                                <li class="mar-btm">
-                                    <div class="media-body pad-hor speech-right">
-                                        <div class="speech">
-                                            <p class="media-heading">You</p>
-                                            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-                                            Penatibus et magnis dis parturient. Pellentesque adipiscing commodo elit at. Odio ut enim blandit volutpat maecenas volutpat blandit.
-                                            Viverra justo nec ultrices dui sapien. Eget gravida cum sociis natoque penatibus et. Sagittis nisl rhoncus mattis rhoncus urna neque viverra.
-                                            Pretium quam vulputate dignissim suspendisse in. Lacus sed turpis tincidunt id aliquet risus feugiat in.
-                                            Sit amet nulla facilisi morbi tempus iaculis urna. Sem et tortor consequat id porta. Morbi tempus iaculis urna id volutpat lacus laoreet.
-                                            Amet nisl purus in mollis nunc.
-                                            <p class="speech-time">
-                                                <i class="fa fa-clock-o fa-fw"></i> **Timestamp**
-                                            </p>
-                                        </div>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                    <div class="nano-pane"><div class="nano-slider" style="height: 141px; transform: translate(0px, 0px);"></div></div></div>
-        
-                    <!--Widget footer-->
-                    <div class="panel-footer">
-                        <form method="POST">
-                            <div class="row">
-                                <div class="col-9">
-                                    <input class="form-control chat-input" id="user_input" type="text" placeholder="Enter your text" >
-                                </div>
-                                <div class="col-3">
-                                    <button class="btn btn-primary send_message" type="submit"><i class="fa fa-paper-plane"></i></button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-  </body>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<link rel="stylesheet" type="text/css" href="../static/styles/css/ui.css" />
+		<link rel="icon" type="image/png" href="../static/images/robot_temp.jpg" />
+		<title>AKOBot - Train Travel Chatbot</title>
+	</head>
+	<body>
+		<header>
+			<img id="logo" alt="AKOBot logo" src="../static/images/akobot.png"/>
+		</header>
+		<main>
+			<div class="chat-container">
+				<div id="chat"></div>
+			</div>
+		</main>
+		<footer>
+			<form method="POST" id="message_form">
+				<div class="form-group">
+					<input type="text" class="left-box" id="user_input" name="user_input" placeholder="Start typing your message"/>
+					<button type="submit" class="right-box send-message"></button>
+				</div>
+			</form>
+		</footer>
+	</body>
+	<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+	<script src="../static/styles/javascript/scripts.js"></script>
 </html>
