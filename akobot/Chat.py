@@ -1,8 +1,12 @@
 """
 Chat.py
 """
+import re
+from difflib import SequenceMatcher
+
 from AKOBot import NLPEngine
 from Database.DatabaseConnector import DBConnection
+from akobot import StationNoMatchError, StationNotFoundError
 
 
 class Chat:
@@ -61,13 +65,55 @@ class Booking(Chat):
             self.db_connection = super_class.db_connection
             self.nlp_engine = super_class.nlp_engine
 
+    @staticmethod
+    def get_similarity(comparator_a, comparator_b):
+        """
+
+        Parameters
+        ----------
+        comparator_a: tuple
+            The tuple from the database when searching for identifier, name
+            from main.Stations table
+        comparator_b: str
+            The departure point input by the user
+        Returns
+        -------
+        float
+            The SequenceMatcher produced ration between the station name from
+            the database and the departure point passed in by the user
+        """
+        comparator_a = comparator_a[1].replace("(" + comparator_b + ")", "")
+        return SequenceMatcher(None, comparator_a[1], comparator_b).ratio()
+
     def add_departure(self, departure_station):
-        query = "SELECT identifier FROM main.Stations WHERE identifier=?"
-        if self.db_connection.send_query(query, (departure_station,)):
+        query = ("SELECT identifier FROM main.Stations WHERE identifier=?"
+                 " COLLATE NOCASE")
+        result = self.db_connection.send_query(query,
+                                               (departure_station,)).fetchall()
+        if result:
             self.departure = departure_station
-
-
-if __name__ == '__main__':
-    booking = Booking()
-    booking.add_departure("NRW")
-    print(booking.departure)
+        else:
+            # Station code not input - try searching by station name
+            query = ("SELECT identifier FROM main.Stations WHERE name=?"
+                     " COLLATE NOCASE")
+            result = self.db_connection.send_query(query,
+                                                   (departure_station,)
+                                                   ).fetchall()
+            if result and len(result) == 1:
+                self.departure = result[0][0]
+            else:
+                # Try finding stations with names close to input name
+                query = ("SELECT * FROM main.Stations WHERE name LIKE ? "
+                         "COLLATE NOCASE")
+                result = self.db_connection.send_query(
+                    query, ("%" + departure_station + "%",)).fetchall()
+                if result:
+                    result.sort(key=lambda station: self.get_similarity(
+                        station, departure_station), reverse=True)
+                    if len(result) <= 3:
+                        raise StationNoMatchError(result)
+                    else:
+                        raise StationNoMatchError(result[0:3])
+                else:
+                    msg = "Unable to find station {}"
+                    raise StationNotFoundError(msg.format(departure_station))

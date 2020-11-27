@@ -8,8 +8,8 @@ class DBConnection:
         # We assume that the database is in the current directory since this
         # is how it's laid out at the moment
 
-        BASE_DIR = path.dirname(path.abspath(__file__))
-        full_path = path.join(BASE_DIR, db_file_name)
+        base_dir = path.dirname(path.abspath(__file__))
+        full_path = path.join(base_dir, db_file_name)
         print(full_path)
         self.conn = None
         try:
