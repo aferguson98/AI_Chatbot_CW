@@ -1,8 +1,11 @@
 """
 Chat.py
 """
-import re
+from datetime import datetime
 from difflib import SequenceMatcher
+import time
+
+from spacy.matcher import Matcher
 
 from AKOBot import NLPEngine
 from Database.DatabaseConnector import DBConnection
@@ -15,12 +18,39 @@ class Chat:
         self.db_connection = DBConnection('AKODatabase.db')
         self.nlp_engine = NLPEngine()
 
-    def add_message(self, author, message_text, time):
+    def add_message(self, author, message_text, timestamp):
         self.chat_log.append({
             "author": author,
             "message_text": message_text,
-            "time": time
+            "time": timestamp
         })
+
+        if author == "human":
+            doc = self.nlp_engine.process(message_text)
+            matcher = Matcher(self.nlp_engine.nlp.vocab)
+            if type(self) is Chat:
+                # Check if the current object is the Chat superclass and so
+                # still need to determine the type of conversation
+                pattern = [{"LEMMA": "book"}]
+                matcher.add("BOOKING_PATTERN", None, pattern)
+                matches = matcher(doc)
+                if len(matches) > 0:
+                    # Likely to be a booking
+                    message = ("Ok, no problem! I'll start searching for the "
+                               "best fares. First, I'll need to know where "
+                               "you're travelling from.")
+                    suggestions = []
+                    self.add_message("bot", message, datetime.now())
+                    booking = Booking(super_class=self)
+                    return [message, suggestions, booking]
+        else:
+            return None
+
+        message = ("I'm sorry. I don't know how to help with that just "
+                   "yet. Please try again")
+        suggestions = []
+        self.add_message("bot", message, datetime.now())
+        return [message, suggestions]
 
 
 class Booking(Chat):
@@ -46,7 +76,7 @@ class Booking(Chat):
             Number of adult tickets to purchase (default: 1)
         num_children: int
             Number of child tickets to purchase (default: 0)
-        super_class: type of Chat
+        super_class: Chat
             An instance of a Chat object which is being used as a basis of this
             instance of booking - the chat_log, db_connection and nlp_engine
             variables will be copied to this instance. (default: None)
@@ -64,6 +94,47 @@ class Booking(Chat):
             self.chat_log = super_class.chat_log
             self.db_connection = super_class.db_connection
             self.nlp_engine = super_class.nlp_engine
+
+    def add_message(self, author, message_text, timestamp):
+        self.chat_log.append({
+            "author": author,
+            "message_text": message_text,
+            "time": timestamp
+        })
+
+        if author == "human":
+            doc = self.nlp_engine.process(message_text)
+            matcher = Matcher(self.nlp_engine.nlp.vocab)
+            if self.departure is None:
+                # Temporarily just pass straight to add_departure function
+                try:
+                    self.add_departure(message_text)
+                    message = "Ok so you're leaving from {}"
+                    message = message.format(message_text)
+                    suggestions = ["👍", "👎"]
+                    self.add_message("bot", message, datetime.now())
+                    return [message, suggestions]
+                except StationNoMatchError as e:
+                    message = ("I found a few stations that matched that name."
+                               " Is one of these correct?")
+                    suggestions = [alternative[1] for alternative in
+                                   e.alternatives]
+                    self.add_message("bot", message, datetime.now())
+                    return [message, suggestions]
+                except StationNotFoundError as e:
+                    message = ("I couldn't find any stations with that name."
+                               " Please try again.")
+                    suggestions = []
+                    self.add_message("bot", message, datetime.now())
+                    return [message, suggestions]
+        else:
+            return None
+
+        message = ("I'm sorry. I don't know how to help with that just "
+                   "yet. Please try again")
+        suggestions = []
+        self.add_message("bot", message, datetime.now())
+        return [message, suggestions]
 
     @staticmethod
     def get_similarity(comparator_a, comparator_b):
@@ -83,7 +154,14 @@ class Booking(Chat):
             the database and the departure point passed in by the user
         """
         comparator_a = comparator_a[1].replace("(" + comparator_b + ")", "")
-        return SequenceMatcher(None, comparator_a[1], comparator_b).ratio()
+        ratio = SequenceMatcher(None, comparator_a.lower(),
+                                comparator_b.lower()).ratio() * 100
+        if comparator_b.lower() in comparator_a.lower():
+            ratio += 25
+        if comparator_b.lower().startswith(comparator_a.lower()):
+            ratio += 25
+        print(comparator_a, ratio)
+        return ratio
 
     def add_departure(self, departure_station):
         query = ("SELECT identifier FROM main.Stations WHERE identifier=?"
@@ -103,11 +181,10 @@ class Booking(Chat):
                 self.departure = result[0][0]
             else:
                 # Try finding stations with names close to input name
-                query = ("SELECT * FROM main.Stations WHERE name LIKE ? "
-                         "COLLATE NOCASE")
-                result = self.db_connection.send_query(
-                    query, ("%" + departure_station + "%",)).fetchall()
+                query = "SELECT * FROM main.Stations"
+                result = self.db_connection.send_query(query).fetchall()
                 if result:
+                    self.start_time = time.time()
                     result.sort(key=lambda station: self.get_similarity(
                         station, departure_station), reverse=True)
                     if len(result) <= 3:

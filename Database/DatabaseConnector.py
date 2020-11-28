@@ -13,7 +13,7 @@ class DBConnection:
         print(full_path)
         self.conn = None
         try:
-            self.conn = sqlite3.connect(full_path)
+            self.conn = sqlite3.connect(full_path, check_same_thread=False)
         except Error as e:
             print(e)
 
