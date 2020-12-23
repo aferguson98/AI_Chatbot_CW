@@ -7,7 +7,7 @@ import time
 
 from spacy.matcher import Matcher
 
-from AKOBot import NLPEngine
+from akobot.AKOBot import NLPEngine
 from Database.DatabaseConnector import DBConnection
 from akobot import StationNoMatchError, StationNotFoundError
 

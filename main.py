@@ -2,7 +2,7 @@ import datetime
 
 from flask import Flask, jsonify, render_template, request
 
-from Chat import Chat, Booking
+from akobot.Chat import Chat, Booking
 from akobot.AKOBot import NLPEngine
 
 app = Flask(__name__, template_folder='templates')
