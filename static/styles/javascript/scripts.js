@@ -1,5 +1,6 @@
-// When doc.ready 
+// When doc.ready
 $(function () {
+
     sendInputData("", true)
 
     // Call AJAX to send message to back-end
@@ -56,6 +57,7 @@ function sendInputData(user_message, isFirst=false) {
             messageObject.text = output.message;
             messageObject.suggestions = output.suggestions;
             messageObject.write(output);
+            //synthesizeSpeech(output.message);
         },
         error: function(e){
             console.error("Could not send to backend: " + e.statusText);
@@ -100,4 +102,28 @@ function writeMessage(message) {
         };
     }(this); // Call write() with the message
     return this;
+}
+
+function synthesizeSpeech(text) {
+    let sdk = SpeechSDK
+    let ssml = `<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
+                <voice name="en-GB-RyanNeural">${text.replace("AKOBot", "akobot")}</voice></speak>`
+
+    const speechConfig = sdk.SpeechConfig.fromSubscription("be0b6d81b60844a084339d50a0b79832",
+                                                     "uksouth");
+    const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
+
+    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
+    synthesizer.speakSsmlAsync(
+        ssml,
+        result => {
+            if (result) {
+                console.log(JSON.stringify(result));
+            }
+            synthesizer.close();
+        },
+        error => {
+            console.log(error);
+            synthesizer.close();
+        });
 }

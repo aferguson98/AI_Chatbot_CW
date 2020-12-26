@@ -1,22 +1,20 @@
 """
 Chat.py
 """
-from datetime import datetime
-from difflib import SequenceMatcher
 import time
+from datetime import datetime
 
+from experta import *
 from spacy.matcher import Matcher
 
-from AKOBot import NLPEngine
-from Database.DatabaseConnector import DBConnection
 from akobot import StationNoMatchError, StationNotFoundError
+from akobot.Reasoner import ChatEngine
 
 
 class Chat:
     def __init__(self):
         self.chat_log = []
-        self.db_connection = DBConnection('AKODatabase.db')
-        self.nlp_engine = NLPEngine()
+        self.chat_engine = ChatEngine()
 
     def add_message(self, author, message_text, timestamp):
         self.chat_log.append({
@@ -25,32 +23,11 @@ class Chat:
             "time": timestamp
         })
 
-        if author == "human":
-            doc = self.nlp_engine.process(message_text)
-            matcher = Matcher(self.nlp_engine.nlp.vocab)
-            if type(self) is Chat:
-                # Check if the current object is the Chat superclass and so
-                # still need to determine the type of conversation
-                pattern = [{"LEMMA": "book"}]
-                matcher.add("BOOKING_PATTERN", None, pattern)
-                matches = matcher(doc)
-                if len(matches) > 0:
-                    # Likely to be a booking
-                    message = ("Ok, no problem! I'll start searching for the "
-                               "best fares. First, I'll need to know where "
-                               "you're travelling from.")
-                    suggestions = []
-                    self.add_message("bot", message, datetime.now())
-                    booking = Booking(super_class=self)
-                    return [message, suggestions, booking]
-        else:
-            return None
+        self.chat_engine.reset()
+        self.chat_engine.declare(Fact(message_text=message_text))
+        self.chat_engine.run()
 
-        message = ("I'm sorry. I don't know how to help with that just "
-                   "yet. Please try again")
-        suggestions = []
-        self.add_message("bot", message, datetime.now())
-        return [message, suggestions]
+        return [self.chat_engine.message, self.chat_engine.suggestions]
 
 
 class Booking(Chat):
@@ -108,9 +85,9 @@ class Booking(Chat):
             if self.departure is None:
                 # Temporarily just pass straight to add_departure function
                 try:
-                    self.add_departure(message_text)
+                    station = self.add_departure(message_text)
                     message = "Ok so you're leaving from {}"
-                    message = message.format(message_text)
+                    message = message.format(station)
                     suggestions = ["👍", "👎"]
                     self.add_message("bot", message, datetime.now())
                     return [message, suggestions]
@@ -136,49 +113,24 @@ class Booking(Chat):
         self.add_message("bot", message, datetime.now())
         return [message, suggestions]
 
-    @staticmethod
-    def get_similarity(comparator_a, comparator_b):
-        """
-
-        Parameters
-        ----------
-        comparator_a: tuple
-            The tuple from the database when searching for identifier, name
-            from main.Stations table
-        comparator_b: str
-            The departure point input by the user
-        Returns
-        -------
-        float
-            The SequenceMatcher produced ration between the station name from
-            the database and the departure point passed in by the user
-        """
-        comparator_a = comparator_a[1].replace("(" + comparator_b + ")", "")
-        ratio = SequenceMatcher(None, comparator_a.lower(),
-                                comparator_b.lower()).ratio() * 100
-        if comparator_b.lower() in comparator_a.lower():
-            ratio += 25
-        if comparator_b.lower().startswith(comparator_a.lower()):
-            ratio += 25
-        print(comparator_a, ratio)
-        return ratio
-
     def add_departure(self, departure_station):
-        query = ("SELECT identifier FROM main.Stations WHERE identifier=?"
-                 " COLLATE NOCASE")
+        query = ("SELECT identifier, name FROM main.Stations WHERE"
+                 " identifier=? COLLATE NOCASE")
         result = self.db_connection.send_query(query,
                                                (departure_station,)).fetchall()
         if result:
             self.departure = departure_station
+            return result[0][1]
         else:
             # Station code not input - try searching by station name
-            query = ("SELECT identifier FROM main.Stations WHERE name=?"
-                     " COLLATE NOCASE")
+            query = ("SELECT identifier, name FROM main.Stations WHERE"
+                     " name=? COLLATE NOCASE")
             result = self.db_connection.send_query(query,
                                                    (departure_station,)
                                                    ).fetchall()
             if result and len(result) == 1:
                 self.departure = result[0][0]
+                return result[0][1]
             else:
                 # Try finding stations with names close to input name
                 query = "SELECT * FROM main.Stations"

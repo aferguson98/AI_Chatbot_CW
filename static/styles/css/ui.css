@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
 @font-face {
   font-family: 'iconly';
   src:  url('../fonts/Iconly-Broken.eot?34gwe1');
@@ -13,7 +15,7 @@
 
 *{
 	color: #202020;
-	font-family: Arial, Helvetica, sans-serif
+	font-family: 'Space Grotesk', Arial, Helvetica, sans-serif
 }
 
 body, html{
@@ -95,6 +97,84 @@ header{
 	line-height: 50px;
 	margin: auto;
 	text-align: center;
+}
+
+/* INDEX PAGE */
+#bgvideo {
+	left: 0;
+	min-height: 100%;
+	position: fixed;
+	top: 0;
+	width: 100%;
+	z-index: -1;
+}
+
+.index-jumbotron{
+	background: transparent;
+	min-height: 100vh;
+	width: 100%;
+}
+
+.jumbo-container{
+	padding: 20px;
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	width: calc(100% - 40px);
+}
+
+.jumbo-container h1{
+	color: #FFFFFF;
+	font-size: 5em;
+	font-weight: 900;
+	text-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+.jumbo-container p{
+	color: #FFFFFF;
+	font-size: 3em;
+	font-weight: 400;
+	text-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+.jumbo-container a{
+	background: #0f19a6;
+	border-radius: 1px;
+	color: #FFFFFF;
+	font-size: 2em;
+	padding: 10px;
+	text-decoration: none;
+	transition: all ease-in-out 0.5s;
+}
+
+.jumbo-container a span {
+	color: #FFFFFF;
+  	display: inline-block;
+  	position: relative;
+  	transition: 0.5s;
+}
+
+.jumbo-container a span:after {
+  content: '\2192';
+  position: absolute;
+  opacity: 0;
+  top: -2.5px;
+  right: -20px;
+  transition: 0.5s;
+}
+
+.jumbo-container a:active span, .jumbo-container a:focus span, .jumbo-container a:hover span {
+  padding-right: 40px;
+}
+
+.jumbo-container a:active span:after, .jumbo-container a:focus span:after, .jumbo-container a:hover span:after{
+  opacity: 1;
+  right: 0;
+}
+
+.transparent{
+	background: transparent;
+	border-color: transparent;
 }
 
 /* MAIN (CHAT) AREA */

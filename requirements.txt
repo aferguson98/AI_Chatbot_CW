@@ -2,3 +2,4 @@ setuptools~=50.3.2
 spacy~=2.3.3
 beautifulsoup4~=4.9.3
 Flask~=1.1.2
+experta~=1.9.4
