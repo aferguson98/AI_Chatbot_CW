@@ -73,13 +73,15 @@ class Predictions:
             # Departing station
             if self.departure_station in row:
                 df_dep = data.loc[row.Index]
-                if df_dep.loc['arr_at'] or df_dep.loc['dep_at']:
+                # Check if the tuple is NOT EMPTY
+                if ( df_dep.loc['arr_at'] == df_dep.loc['arr_at'] ) and ( df_dep.loc['dep_at'] == df_dep.loc['dep_at'] ):
                     departure_journeys.append({ "id" : df_dep.loc['rid'], "arr_at" : df_dep.loc['arr_at'], "dep_at" : df_dep.loc['dep_at']})
                 # print(train_journeys)
             # Arriving station
             elif self.arrival_station in row:
                 df_arr = data.loc[row.Index]
-                if df_arr.loc['arr_at'] or df_arr.loc['dep_at']:
+                # Check if the tuple is NOT EMPTY
+                if ( df_arr.loc['arr_at'] == df_arr.loc['arr_at'] ) and ( df_arr.loc['dep_at'] == df_arr.loc['dep_at'] ):
                     arrival_journeys.append({ "id" : df_arr.loc['rid'], "arr_at" : df_arr.loc['arr_at'], "dep_at" : df_arr.loc['dep_at']})
                 # print(train_journeys)
         
@@ -93,13 +95,24 @@ class Predictions:
             c = float(arrival_journeys[j]['arr_at'].replace(":", "."))
             y.append([c])
         
+        # X = np.array(X)
+        # y = np.array(y)
+
+        if len(X) > len(y):
+            X = X[:len(y)]
+        elif len(y) > len(X):
+            y = y[:len(X)]
+
+        X_encoded = preprocessing.LabelEncoder().fit_transform(X)
+        y_encoded = preprocessing.LabelEncoder().fit_transform(y)
+
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
 
         clf = neighbors.KNeighborsClassifier()
         clf.fit(X_train, y_train)
 
-        accuracy = clf.score(X_test, y_test)
-        print(accuracy)
+        # accuracy = clf.score(X_test, y_test)
+        # print(accuracy)
 
          
             
