@@ -3,6 +3,8 @@ from sklearn import preprocessing, neighbors
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import csv
+import os
+from dateutil import parser
 
 class Predictions:
 
@@ -56,7 +58,7 @@ class Predictions:
         Output:
         string - predicted time of arrival on TO station.
         """
-        data = pd.read_csv('../TrainingData/a51/NRCH_LIVST_OD_a51_2019_1_1.csv')
+        data = pd.read_csv('../AI_chatbot/TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
        
 
         self.departure_station = self.station_finder(FROM)
@@ -71,21 +73,25 @@ class Predictions:
             # Departing station
             if self.departure_station in row:
                 df_dep = data.loc[row.Index]
-                departure_journeys.append({ "id" : df_dep.loc['rid'], "arr_at" : df_dep.loc['arr_at'], "dep_at" : df_dep.loc['dep_at']})
+                if df_dep.loc['arr_at'] or df_dep.loc['dep_at']:
+                    departure_journeys.append({ "id" : df_dep.loc['rid'], "arr_at" : df_dep.loc['arr_at'], "dep_at" : df_dep.loc['dep_at']})
                 # print(train_journeys)
             # Arriving station
             elif self.arrival_station in row:
                 df_arr = data.loc[row.Index]
-                arrival_journeys.append({ "id" : df_arr.loc['rid'], "arr_at" : df_arr.loc['arr_at'], "dep_at" : df_arr.loc['dep_at']})
+                if df_arr.loc['arr_at'] or df_arr.loc['dep_at']:
+                    arrival_journeys.append({ "id" : df_arr.loc['rid'], "arr_at" : df_arr.loc['arr_at'], "dep_at" : df_arr.loc['dep_at']})
                 # print(train_journeys)
         
         # Train the model model
         X = []
         y = []
         for j in range(len(departure_journeys)):
-            X.append([departure_journeys[j]['dep_at']])
+            b = float(departure_journeys[j]['dep_at'].replace(":", "."))
+            X.append([b])
         for j in range(len(arrival_journeys)):
-            y.append([arrival_journeys[j]['arr_at']])
+            c = float(arrival_journeys[j]['arr_at'].replace(":", "."))
+            y.append([c])
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
 
