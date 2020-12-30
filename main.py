@@ -40,5 +40,5 @@ def process_user_input():
     return jsonify({"message": response, "suggestions": suggestions})
 
 
-if __name__ == '__main__':
-    app.run()
+# if __name__ == '__main__':
+#     app.run()

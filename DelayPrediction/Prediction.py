@@ -1,17 +1,21 @@
 import numpy as np
 from sklearn import preprocessing, neighbors
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
 import pandas as pd
-import csv
-import os
-from dateutil import parser
+import csv, os
+import datetime
 
 class Predictions:
+
+    path_to_data = os.path.dirname(__file__).join('/TrainingData')
 
     def __init__(self):
         self.departure_station = ""
         self.arrival_station = ""
         self.time_departure = ""
+        self.data = pd.read_csv('../AI_chatbot/TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
+        # self.data = pd.read_csv('../TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
         self.stations = {
                 "norwich" : "NRCH",
                 "diss" : "DISS",
@@ -26,6 +30,7 @@ class Predictions:
                 "stanford" : "STFD",
                 "liverpool st" : "LIVST"
             }
+        
 
    
 
@@ -42,9 +47,7 @@ class Predictions:
         """
         
         x = station.lower()
-        print("HellooooO: ", x)
         if x in self.stations:
-            print("GOTEM. Value : ", self.stations[x])
             return self.stations[x]
 
     def knn(self, FROM, TO, Tdepart):
@@ -58,58 +61,123 @@ class Predictions:
         Output:
         string - predicted time of arrival on TO station.
         """
-        data = pd.read_csv('../AI_chatbot/TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
-       
-
+        
         self.departure_station = self.station_finder(FROM)
         self.arrival_station = self.station_finder(TO)
         self.time_departure = Tdepart
 
         departure_journeys = []
         arrival_journeys = []
+        t_depart_s = (datetime.datetime.strptime(Tdepart, '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
 
-        # Loop through the csv file and store specific rows in object.
-        for row in data.itertuples():
+        for row in self.data.itertuples():
             # Departing station
             if self.departure_station in row:
-                df_dep = data.loc[row.Index]
+                df_dep = self.data.loc[row.Index] # get the current row
                 # Check if the tuple is NOT EMPTY
-                if ( df_dep.loc['arr_at'] == df_dep.loc['arr_at'] ) and ( df_dep.loc['dep_at'] == df_dep.loc['dep_at'] ):
-                    departure_journeys.append({ "id" : df_dep.loc['rid'], "arr_at" : df_dep.loc['arr_at'], "dep_at" : df_dep.loc['dep_at']})
-                # print(train_journeys)
+                if ( df_dep.loc['ptd'] == df_dep.loc['ptd'] ) and ( df_dep.loc['dep_at'] == df_dep.loc['dep_at'] ):
+                    # Difference in time between expected departure and actual departure in seconds.
+                    ptd_s = (datetime.datetime.strptime(df_dep.loc['ptd'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
+                    dep_at_s = (datetime.datetime.strptime(df_dep.loc['dep_at'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
+                    # diff_in_sec = dep_at_s - ptd_s
+                    departure_journeys.append({ "id" : df_dep.loc['rid'], "dep_difference" : dep_at_s})
             # Arriving station
             elif self.arrival_station in row:
-                df_arr = data.loc[row.Index]
+                if len(arrival_journeys) > len(departure_journeys):
+                    continue
+
+                df_arr = self.data.loc[row.Index] # get the current row
                 # Check if the tuple is NOT EMPTY
-                if ( df_arr.loc['arr_at'] == df_arr.loc['arr_at'] ) and ( df_arr.loc['dep_at'] == df_arr.loc['dep_at'] ):
-                    arrival_journeys.append({ "id" : df_arr.loc['rid'], "arr_at" : df_arr.loc['arr_at'], "dep_at" : df_arr.loc['dep_at']})
-                # print(train_journeys)
-        
-        # Train the model model
+                if ( df_arr.loc['pta'] == df_arr.loc['pta'] ) and ( df_arr.loc['arr_at'] == df_arr.loc['arr_at'] ):
+                    # Difference in time between expected departure and actual departure in seconds.
+                    pta_s = (datetime.datetime.strptime(df_arr.loc['pta'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
+                    arr_at_s = (datetime.datetime.strptime(df_arr.loc['arr_at'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
+                    # diff_in_sec = arr_at_s - pta_s
+                    arrival_journeys.append({ "id" : df_arr.loc['rid'], "dep_difference" : arr_at_s})
+
         X = []
         y = []
-        for j in range(len(departure_journeys)):
-            b = float(departure_journeys[j]['dep_at'].replace(":", "."))
-            X.append([b])
-        for j in range(len(arrival_journeys)):
-            c = float(arrival_journeys[j]['arr_at'].replace(":", "."))
-            y.append([c])
-        
-        # X = np.array(X)
-        # y = np.array(y)
+        # Selecting on specific tuple from the dictionaries - dep_difference
+        for i in range(len(departure_journeys)):
+            X.append(departure_journeys[i]['dep_difference'])
 
-        if len(X) > len(y):
-            X = X[:len(y)]
-        elif len(y) > len(X):
-            y = y[:len(X)]
+        for i in range(len(arrival_journeys)):
+            y.append(arrival_journeys[i]['dep_difference'])
 
-        X_encoded = preprocessing.LabelEncoder().fit_transform(X)
-        y_encoded = preprocessing.LabelEncoder().fit_transform(y)
+        # turn the variables into numpy arrays so they can be reshaped for training the model.
+        X = np.array(X)
+        y = np.array(y)
+        t_depart_s = np.array(t_depart_s)
 
+        # Splitting data into 80-20 train/test
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
 
-        clf = neighbors.KNeighborsClassifier()
+        # Reshape the data into 2D arrays so it can be used to train
+        X_train = X_train.reshape(-1, 1)
+        y_train = y_train.reshape(-1, 1)
+        X_test = X_test.reshape(-1, 1)
+        y_test = y_test.reshape(-1, 1)
+        t_depart_s = t_depart_s.reshape(-1, 1)
+
+        # Specifying type of classification and training
+        clf = neighbors.KNeighborsRegressor()
         clf.fit(X_train, y_train)
+
+        mse = mean_squared_error(X_test, y_test)
+        print("Mean squared error is: ", mse)
+
+        prediction_s = clf.predict(t_depart_s)
+        prediction_h = int(prediction_s[0][0] / 3600)
+        prediction_s = prediction_s - (prediction_h * 3600)
+        prediction_m = int(prediction_s[0][0] / 60)
+        prediction_s = prediction_s - (prediction_m * 60)
+        prediction_s = int(prediction_s[0][0] % 60)
+
+        print(prediction_h, prediction_m, prediction_s)
+        # print("Your journey will be delayed by " + str(prediction_m) + " minutes and " + str(prediction_s) + " seconds.")
+
+        # # Loop through the csv file and store specific rows in object.
+        # for row in data.itertuples():
+        #     # Departing station
+        #     if self.departure_station in row:
+        #         df_dep = data.loc[row.Index]
+        #         # Check if the tuple is NOT EMPTY
+        #         if ( df_dep.loc['arr_at'] == df_dep.loc['arr_at'] ) and ( df_dep.loc['dep_at'] == df_dep.loc['dep_at'] ):
+        #             departure_journeys.append({ "id" : df_dep.loc['rid'], "arr_at" : df_dep.loc['arr_at'], "dep_at" : df_dep.loc['dep_at']})
+        #         # print(train_journeys)
+        #     # Arriving station
+        #     elif self.arrival_station in row:
+        #         df_arr = data.loc[row.Index]
+        #         # Check if the tuple is NOT EMPTY
+        #         if ( df_arr.loc['arr_at'] == df_arr.loc['arr_at'] ) and ( df_arr.loc['dep_at'] == df_arr.loc['dep_at'] ):
+        #             arrival_journeys.append({ "id" : df_arr.loc['rid'], "arr_at" : df_arr.loc['arr_at'], "dep_at" : df_arr.loc['dep_at']})
+        #         # print(train_journeys)
+        
+        # # Train the model model
+        # X = []
+        # y = []
+        # for j in range(len(departure_journeys)):
+        #     b = float(departure_journeys[j]['dep_at'].replace(":", "."))
+        #     X.append([b])
+        # for j in range(len(arrival_journeys)):
+        #     c = float(arrival_journeys[j]['arr_at'].replace(":", "."))
+        #     y.append([c])
+        
+        # # X = np.array(X)
+        # # y = np.array(y)
+
+        # if len(X) > len(y):
+        #     X = X[:len(y)]
+        # elif len(y) > len(X):
+        #     y = y[:len(X)]
+
+        # X_encoded = preprocessing.LabelEncoder().fit_transform(X)
+        # y_encoded = preprocessing.LabelEncoder().fit_transform(y)
+
+        # X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size = 0.2)
+
+        # clf = neighbors.KNeighborsClassifier()
+        # clf.fit(X_train, y_train)
 
         # accuracy = clf.score(X_test, y_test)
         # print(accuracy)
@@ -142,4 +210,3 @@ class Predictions:
 pr = Predictions()
 # pr.station_finder("Norwich")
 pr.knn("Diss", "Ipswich", "13:25")
-
