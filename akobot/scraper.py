@@ -12,7 +12,7 @@ def scrape(journey_data):
     # Norwich - London, 5 Dec 2020, 12:45, return 6 Dec 2020, 13:45
     # Should replace later on with user data from journeyData
     url = "https://ojp.nationalrail.co.uk/service/timesandfares/NRW/LST" \
-          "/051220/1245/dep/061220/1345/dep "
+          "/051220/1245/dep/061220/1345/dep"
 
     # Open the webpage
     webpage = urlopen(url)

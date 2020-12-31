@@ -2,8 +2,7 @@ import datetime
 
 from flask import Flask, jsonify, render_template, request
 
-from akobot.Chat import Chat, Booking
-from akobot.AKOBot import NLPEngine
+from akobot.Chat import Chat
 
 app = Flask(__name__, template_folder='templates')
 app.config.update(
@@ -31,16 +30,18 @@ def process_user_input():
     if user_input == "":
         response = ("Hi! I'm AKOBot, a kind of bot that can help you travel by "
                     "train smarter. How can I be of assistance today?")
-        message = response.replace("AKOBot", "akobot")
         this_chat = Chat()
         this_chat.add_message("bot", response, datetime.datetime.now())
         suggestions = ['Book a ticket', 'Delay Prediction', 'Help & Support']
     else:
-        message = this_chat.add_message("human",
-                                        user_input,
-                                        datetime.datetime.now())
-        if len(message) > 2:
-            this_chat = message[2]
+        try:
+            message = this_chat.add_message("human",
+                                            user_input,
+                                            datetime.datetime.now())
+        except Exception as e:
+            print(e)
+            message = ["Sorry! There has been an issue with this chat, please "
+                       "reload the page to start a new chat.", ["Reload Page"]]
         response = message[0]
         suggestions = message[1]
     return jsonify({"message": response, "suggestions": suggestions})

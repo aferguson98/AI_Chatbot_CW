@@ -90,10 +90,19 @@ function writeMessage(message) {
             if(localthis.suggestions.length > 0) {
                 msgElement += `<div class="suggestions-container">`;
                 localthis.suggestions.forEach((suggestion) => {
-                   msgElement += `<div class="suggestion" 
+                    if(suggestion !== "Reload Page") {
+                        // removes non-human readable portion of suggestions
+                        let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '')
+                        console.log(suggestionClean)
+                        msgElement += `<div class="suggestion" 
                                        onclick="sendInputData('${suggestion}');
-                                                sendMessage('${suggestion}');">
+                                                sendMessage('${suggestionClean}');">
+                                  ${suggestionClean}</div>`
+                    }else{
+                        msgElement += `<div class="suggestion"
+                                       onclick="window.location.reload()">
                                   ${suggestion}</div>`
+                    }
                 });
                 msgElement += `</div>`;
             }
