@@ -27,12 +27,20 @@ def process_user_input():
     global this_chat
 
     user_input = request.form['user_input']
+    is_system = request.form['is_system']
+
     if user_input == "":
         response = ("Hi! I'm AKOBot, a kind of bot that can help you travel by "
                     "train smarter. How can I be of assistance today?")
         this_chat = Chat()
         this_chat.add_message("bot", response, datetime.datetime.now())
         suggestions = ['Book a ticket', 'Delay Prediction', 'Help & Support']
+        response_req = True
+    elif user_input == "POPMSG" and is_system == "true":
+        message = this_chat.pop_message()
+        response = message[0]
+        suggestions = message[1]
+        response_req = message[2]
     else:
         try:
             message = this_chat.add_message("human",
@@ -44,7 +52,10 @@ def process_user_input():
                        "reload the page to start a new chat.", ["Reload Page"]]
         response = message[0]
         suggestions = message[1]
-    return jsonify({"message": response, "suggestions": suggestions})
+        response_req = message[2]
+    return jsonify({"message": response,
+                    "suggestions": suggestions,
+                    "response_req": response_req})
 
 
 if __name__ == '__main__':

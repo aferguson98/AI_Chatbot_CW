@@ -23,9 +23,17 @@ class Chat:
             "time": timestamp
         })
 
-        self.chat_engine.reset()
-        self.chat_engine.declare(Fact(message_text=message_text))
-        self.chat_engine.run()
-        print(self.chat_engine.facts)
+        if author != "bot":
+            self.chat_engine.reset()
+            self.chat_engine.declare(Fact(message_text=message_text))
+            self.chat_engine.run()
+            message_dict = self.chat_engine.message.pop(0)
+            return [message_dict['message'],
+                    message_dict['suggestions'],
+                    message_dict['response_req']]
 
-        return [self.chat_engine.message, self.chat_engine.suggestions]
+    def pop_message(self):
+        message_dict = self.chat_engine.message.pop(0)
+        return [message_dict['message'],
+                message_dict['suggestions'],
+                message_dict['response_req']]

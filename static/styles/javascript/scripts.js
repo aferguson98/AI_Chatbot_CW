@@ -38,7 +38,7 @@ function sendMessage(text) {
 }
 
 // AJAX call to back-end
-function sendInputData(user_message, isFirst=false) {
+function sendInputData(user_message, isFirst=false, isSystem="false") {
     if (user_message.trim() === '' && !isFirst) {
         return;
     }
@@ -52,12 +52,21 @@ function sendInputData(user_message, isFirst=false) {
         type: 'POST',
         url: '/chat',
         datatype:"json",
-        data: {"user_input" : user_message},
+        data: {"user_input" : user_message, "is_system": isSystem},
         success: function(output){
             messageObject.text = output.message;
             messageObject.suggestions = output.suggestions;
+            messageObject.response_req = output.response_req;
             messageObject.write(output);
-            //synthesizeSpeech(output.message);
+            changeUIFromTags(output.message, new Date().toTimeString().slice(0, 5));
+            //synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
+            if(messageObject.text.includes("Ok great, let's get your booking started!")){
+                $('main').css('width', 'calc(100% - 400px)');
+                $('.side-bar').css("transform", "scaleX(1)");
+            }
+            if(messageObject.response_req === false){
+                sendInputData("POPMSG", false, "true");
+            }
         },
         error: function(e){
             console.error("Could not send to backend: " + e.statusText);
@@ -71,6 +80,7 @@ function writeMessage(message) {
     this.text = message.text;
     this.side = message.side;
     this.suggestions = message.suggestions;
+    this.response_req = message.response_req;
     let author;
     if(this.side === 'left'){
         author = "bot";
@@ -82,9 +92,11 @@ function writeMessage(message) {
             let today = new Date();
             //  time of the message sent
             let time = today.toTimeString().slice(0, 5);
+            // remove any tags added by bot for UI display
+            let cleanText = localthis.text.replace(/\s?\{[^}]+\}/g, '')
             // building the message element with user message
             let msgElement = `<div class="message ${author}"><span class="icon">
-                </span><span class="content">${localthis.text}
+                </span><span class="content">${cleanText}
                 <span class="time">${time}</span></span></div>`;
             // append suggestions if exist
             if(localthis.suggestions.length > 0) {
@@ -135,4 +147,44 @@ function synthesizeSpeech(text) {
             console.log(error);
             synthesizer.close();
         });
+}
+
+function updateTicketField(tag, value, time){
+     $('.' + tag).text(value.toUpperCase());
+     $('#search-time').text(time)
+}
+
+function changeUIFromTags(messageText, updatedTime){
+    console.log(messageText)
+    let regex = new RegExp('{([^}]+)}', 'g');
+    let results = [...messageText.matchAll(regex)]
+    results.forEach(function(element){
+        let tagArr = element[1].split(":");
+        let tag = tagArr[0], value = tagArr[1];
+        switch (tag){
+            case 'DEP':
+                updateTicketField('from', value, updatedTime)
+                break;
+            case 'ARR':
+                updateTicketField('to', value, updatedTime)
+                break;
+            case 'DTM':
+                updateTicketField('out', value, updatedTime)
+                break;
+            case 'RTM':
+                updateTicketField('in', value, updatedTime)
+                break;
+            case 'TYP':
+                updateTicketField('ticket-header', value, updatedTime)
+                break;
+            case 'ADT':
+                updateTicketField('adults', value, updatedTime)
+                break;
+            case 'CHD':
+                updateTicketField('child', value, updatedTime)
+                break;
+            default:
+                break;
+       }
+    });
 }

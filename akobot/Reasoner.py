@@ -9,7 +9,8 @@ from experta import *
 from spacy.matcher import Matcher
 
 from Database.DatabaseConnector import DBConnection
-from akobot import StationNoMatchError, StationNotFoundError
+from akobot import StationNoMatchError, StationNotFoundError, \
+    UnknownPriorityException
 from akobot.AKOBot import NLPEngine
 
 TokenDictionary = {
@@ -19,7 +20,7 @@ TokenDictionary = {
     "yes": ["yes", "yeah", "y", "yep", "yeh", "ye"],
     "no": ["no", "nope", "n", "nah", "na"],
     "depart": [{"POS": "ADP", "LEMMA": {"IN": ["depart", "from", "departing"]}},
-               {"POS": "PROPN", "OP": "+"}, {"POS": "PROPN", "DEP": "pobj"}],
+               {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
     "arrive": [{"POS": "ADP", "LEMMA": {"IN": ["arrive", "to", "arriving"]}},
                {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
 
@@ -60,10 +61,15 @@ class ChatEngine(KnowledgeEngine):
         self.db_connection = DBConnection('AKODatabase.db')
         self.nlp_engine = NLPEngine()
 
+        # Knowledge dict
+        self.knowledge = {}
+
         # User Interface output
-        self.message = ("I'm sorry. I don't know how to help with that just "
-                        "yet. Please try again")
-        self.suggestions = []
+        self.def_message = {"message": "I'm sorry. I don't know how to help "
+                                       "with that just yet. Please try again",
+                            "suggestions": [],
+                            "response_req": True}
+        self.message = []
 
     def get_matches(self, doc, pattern):
         matcher = Matcher(self.nlp_engine.nlp.vocab)
@@ -73,6 +79,43 @@ class ChatEngine(KnowledgeEngine):
             for match_id, start, end in matches:
                 return doc[start:end]
         return None
+
+    def add_to_message_chain(self, message, priority=1, req_response=True,
+                             suggestions=None):
+        """
+
+        Parameters
+        ----------
+        message: str
+            The message to add to the queue
+        priority: int
+            A priority value. 1 = Standard, 0 = High, 7 = Tag. A high priority
+            message will be added to start of the queue and standard priority
+            to the end. A tag message will be added to the start of the first
+            message in the queue
+        req_response
+        suggestions
+        """
+        if suggestions is None:
+            suggestions = []
+        if (len(self.message) == 1 and
+                self.def_message in self.message and
+                priority != 7):
+            self.message = []
+        if "I found" in message and len(self.message) > 0:
+            message = message.replace("I found", "I also found")
+        if priority == 1:
+            self.message.append({"message": message,
+                                 "suggestions": suggestions,
+                                 "response_req": req_response})
+        elif priority == 0:
+            self.message.insert(0, {"message": message,
+                                    "suggestions": suggestions,
+                                    "response_req": req_response})
+        elif priority == 7:
+            self.message[0]['message'] = message + self.message[0]['message']
+        else:
+            raise UnknownPriorityException(priority)
 
     def find_station(self, search_station):
         query = ("SELECT identifier, name FROM main.Stations WHERE identifier=?"
@@ -107,10 +150,13 @@ class ChatEngine(KnowledgeEngine):
 
     @DefFacts()
     def _initial_action(self):
-        self.message = ("I'm sorry. I don't know how to help with that just "
-                        "yet. Please try again")
-        self.suggestions = []
-        yield Fact(action="chat")
+        if len(self.message) == 0:
+            self.message = [self.def_message]
+        for key, value in self.knowledge.items():
+            this_fact = {key: value}
+            yield Fact(**this_fact)
+        if "action" not in self.knowledge.keys():
+            yield Fact(action="chat")
 
     @Rule(AS.f1 << Fact(action="chat"),
           Fact(message_text=MATCH.message_text))
@@ -131,8 +177,10 @@ class ChatEngine(KnowledgeEngine):
         matches = matcher(doc)
         if len(matches) > 0:
             # likely to be a booking
-            self.message = "Ok great, let's get your booking started!"
-            self.suggestions = []
+            self.add_to_message_chain("Ok great, let's get your booking "
+                                      "started! I'll put all the details on the"
+                                      " right hand side as we go.",
+                                      req_response=False)
             self.modify(f1, action="book")
             self.declare(Fact(complete=False))
             self.declare(Fact(extra_info_req=False))
@@ -141,17 +189,17 @@ class ChatEngine(KnowledgeEngine):
             matches = matcher(doc)
             if len(matches) > 0:
                 # likely to be a delay prediction
-                self.message = ("Using the latest train data, I can predict "
-                                "how long you'll be delayed.")
-                self.suggestions = []
+                self.add_to_message_chain("Using the latest train data, I can "
+                                          "predict how long you'll be delayed.",
+                                          req_response=False)
                 self.modify(f1, action="delay")
             else:
                 matcher.add("HELP_PATTERN", None, TokenDictionary['help'])
                 matches = matcher(doc)
                 if len(matches) > 0:
                     # likely to be a support request
-                    self.message = "Ok, no problem! I'm here to help."
-                    self.suggestions = []
+                    self.add_to_message_chain("Ok, no problem! I'm here to "
+                                              "help.", req_response=False)
                     self.modify(f1, action="help")
 
     # BOOKING ACTIONS
@@ -177,42 +225,90 @@ class ChatEngine(KnowledgeEngine):
             The message text passed by the user to the Chat class
         """
         doc = self.nlp_engine.process(message_text)
+        message = ""
 
         # Departure Station
+        dep_found_mul_msg = ("I found a few departure stations that matched {}."
+                             " Is one of these correct?")
+        dep_found_none_msg = ("I couldn't find any departure stations "
+                              "matching {}. Please try again.")
+
         dep = self.get_matches(doc, TokenDictionary["depart"])
         if dep is not None:
             search_station = str(dep[1:])
             try:
                 station = self.find_station(search_station)
-                self.message = "Your departure point is: " + station[1]
-                self.suggestions = []
+                message += "{DEP:" + station[1] + "}"
+                self.declare(Fact(depart=station[0]))
             except StationNoMatchError as e:
-                self.message = ("I found a few departure stations that matched"
-                                "that name. Is one of these correct?")
-                self.suggestions = ["{TAG:DEP}" + alternative[1]
-                                    for alternative in e.alternatives]
+                self.add_to_message_chain(
+                    dep_found_mul_msg.format(search_station),
+                    suggestions=["{TAG:DEP}" + alternative[1]
+                                 for alternative in e.alternatives]
+                )
             except StationNotFoundError as e:
-                self.message = ("I couldn't find any departure stations with "
-                                "that name. Please try again.")
+                self.add_to_message_chain(
+                    dep_found_none_msg.format(search_station)
+                )
+        elif "{TAG:DEP}" in message_text:
+            search_station = message_text.replace("{TAG:DEP}", "")
+            try:
+                station = self.find_station(search_station)
+                message += "{DEP:" + station[1] + "}"
                 self.suggestions = []
+                self.declare(Fact(depart=station[0]))
+            except StationNoMatchError as e:
+                self.add_to_message_chain(
+                    dep_found_mul_msg.format(search_station),
+                    suggestions=["{TAG:DEP}" + alternative[1]
+                                 for alternative in e.alternatives]
+                )
+            except StationNotFoundError as e:
+                self.add_to_message_chain(
+                    dep_found_none_msg.format(search_station)
+                )
 
-        # Departure Station
+        # Arrival Station
+        arr_found_mul_msg = ("I found a few arrival stations that matched {}."
+                             " Is one of these correct?")
+        arr_found_none_msg = ("I couldn't find any arrival stations "
+                              "matching {}. Please try again.")
+
         arr = self.get_matches(doc, TokenDictionary["arrive"])
+        print(arr)
         if arr is not None:
             search_station = str(arr[1:])
             try:
                 station = self.find_station(search_station)
-                self.message = "Your arrival point is: " + station[1]
-                self.suggestions = []
+                message += "{ARR:" + station[1] + "}"
+                self.declare(Fact(arrive=station[0]))
             except StationNoMatchError as e:
-                self.message = ("I found a few arrival stations that matched"
-                                "that name. Is one of these correct?")
-                self.suggestions = ["{TAG:DEP}" + alternative[1]
-                                    for alternative in e.alternatives]
+                self.add_to_message_chain(
+                    arr_found_mul_msg.format(search_station),
+                    suggestions=["{TAG:ARR}" + alternative[1]
+                                 for alternative in e.alternatives]
+                )
             except StationNotFoundError as e:
-                self.message = ("I couldn't find any arrival stations with "
-                                "that name. Please try again.")
-                self.suggestions = []
+                self.add_to_message_chain(
+                    arr_found_none_msg.format(search_station)
+                )
+        elif "{TAG:ARR}" in message_text:
+            search_station = message_text.replace("{TAG:ARR}", "")
+            try:
+                station = self.find_station(search_station)
+                message += "{ARR:" + station[1] + "}"
+                self.declare(Fact(arrive=station[0]))
+            except StationNoMatchError as e:
+                self.add_to_message_chain(
+                    arr_found_mul_msg.format(search_station),
+                    suggestions=["{TAG:ARR}" + alternative[1]
+                                 for alternative in e.alternatives]
+                )
+            except StationNotFoundError as e:
+                self.add_to_message_chain(
+                    arr_found_none_msg.format(search_station)
+                )
+        self.add_to_message_chain(message, priority=7)
 
     # # Request Extra Info # #
     @Rule(Fact(action="book"),
@@ -221,8 +317,14 @@ class ChatEngine(KnowledgeEngine):
     def ask_for_departure(self, f1):
         """Decides if need to ask user for the departure point"""
         self.message = "And where are you travelling from?"
-        self.suggestions = []
 
     # DELAY ACTIONS
 
     # HELP ACTIONS
+
+    @Rule()
+    def add_all_facts_to_dict(self):
+        for f in self.facts:
+            for g, val in self.facts[f].items():
+                if g != "__factid__" and g != "message_text":
+                    self.knowledge[g] = val

@@ -185,6 +185,7 @@ header{
 /* MAIN (CHAT) AREA */
 
 main{
+	transition: width ease-in-out 0.5s;
 	width: 100%;
 }
 
@@ -297,6 +298,9 @@ main{
 		position: fixed;
 		right: 0;
 		top: 91px;
+		transform: scaleX(0);
+		transform-origin: top right;
+		transition: transform ease-in-out 0.5s;
 		width: 400px;
 		z-index: 0;
 	}
