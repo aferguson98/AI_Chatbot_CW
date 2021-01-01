@@ -11,7 +11,7 @@ class Predictions:
         self.departure_station = ""
         self.arrival_station = ""
         self.time_departure = ""
-        self.data = pd.read_csv('../AI_chatbot/TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
+        self.data = pd.read_csv('..//TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
         # self.data = pd.read_csv('../TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
         self.stations = {
                 "norwich" : "NRCH",
