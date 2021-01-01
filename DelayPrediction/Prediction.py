@@ -6,13 +6,17 @@ import pandas as pd
 import csv, os
 import datetime
 
+import sys
+sys.path.append('../') # This is temporarily here because i just wanna get the database to work for now.
+from Database.DatabaseConnector import DBConnection
+
 class Predictions:
     def __init__(self):
         self.departure_station = ""
         self.arrival_station = ""
         self.time_departure = ""
-        self.data = pd.read_csv('..//TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
-        # self.data = pd.read_csv('../TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
+        self.db_connection = DBConnection('AKODatabase.db')
+        # self.data = pd.read_csv('..//TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
         self.stations = {
                 "norwich" : "NRCH",
                 "diss" : "DISS",
@@ -77,44 +81,80 @@ class Predictions:
         departure_journeys = []
         arrival_journeys = []
         t_depart_s = (datetime.datetime.strptime(Tdepart, '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
-        journies = [[]]
+        journies = {} # I'm not sure atm if we need this to be sorted, but there's an ordered dict if we need to use it.
 
-        visited_rows = []
-        x = 0
         # Make a dict of objects with each journey (RID)
         # Look for journeys that have both FROm and TO dep/arr time (no missing data)
         # Instead of row by row, go by RID from the dictionary
         #   if dep OR arr is NaN, skip the row
 
-       
-
-        for i in (self.data.rid.unique()):
-            journies[x].append(i) # DON'T TOUCH TIHS!
-            print(i)
-            # Get only those rows that have the same RID
-            # rows_lambda = self.data.apply(lambda x: True if x['rid'] == i else False, axis = 1)
-            for row in self.data.itertuples():
-                print(len(self.df))
-                print(row)
-                row_index = self.data.loc[row.Index]
-                print(type(row_index))
+        
+        # TODO: make this dynamic in the future, for now we know that rids range from 201902017628973 to 201902287629041
+        for current_rid in range(201902017628973, 201902287629041):
+            
+            # Query to extract info from the database by RIDs
+            query = "SELECT tpl, pta, ptd, arr_at, dep_at FROM main.TrainingData WHERE rid=?"
+            result = self.db_connection.send_query(query, [current_rid]).fetchall()
+            
+            if not result:
+                # This means the rid doesn't exist in the table, so do nothing.
+                continue
+            
+            
+            """
+                list of dictionaries, link them with rid by by putting them as a dictionary
+            """
+            # This list will store the dictionary of info about this journey from this specific RID
+            current_rid_journey = []
+            
+            for row in result:
+                # Iterate through each row and turn it into a dictionary..
                 
-                print(type(row_index))
+                journey_info = {
+                    "tpl": row[0], # I'm assuming this was supposed to be named station or sth? TODO: ask Kaloyan
+                    "publicArrive": row[1],
+                    "publicDepart": row[2],
+                    "actArrive": row[3],
+                    "acdDepart": row[4]
+                }
                 
-                if (row_index not in visited_rows):
-                    if (row_index['rid'] == i):
-                        print("rid matches i")
-                        journey = { "rid" : row_index.loc['rid'], "tpl" : row_index.loc['tpl'], "publicArrive" : row_index.loc['pta'], "publicDepart" : row_index.loc['ptd'], "actArrive" : row_index.loc['arr_at'], "acdDepart" : row_index.loc['dep_at'] }
-                        # journey = { "rid" : i, "tpl" : self.data.tpl, "publicArrive" : self.data.pta, "publicDepart" : self.data.ptd, "actArrive" : self.data.arr_at, "actDedpart" : self.data.dep_at }
-                        journies= np.append(journies[x], journey)
-                    else:
-                        break
+                # And add it to the list
+                current_rid_journey.append(journey_info)
+            
+            # Add this list to the main dictionary, by using the RID as the key
+            journies[current_rid] = current_rid_journey 
+            
+            # We don't need this anymore, but I'm keeping it until we are 100% sure this works.
+            """    
+            for i in (self.data.rid.unique()):
+                journies[x].append(i) # DON'T TOUCH TIHS!
+                print(i)
+                # Get only those rows that have the same RID
+                # rows_lambda = self.data.apply(lambda x: True if x['rid'] == i else False, axis = 1)
+                for row in self.data.itertuples():
+                    print(len(self.df))
+                    print(row)
+                    row_index = self.data.loc[row.Index]
+                    print(type(row_index))
 
-                visited_rows.append(row.Index)
+                    print(type(row_index))
 
-            print(self.df[0])
-            x += 1
-            self.df.append(journies)
+                    if (row_index not in visited_rows):
+                        if (row_index['rid'] == i):
+                            print("rid matches i")
+                            journey = { "rid" : row_index.loc['rid'], "tpl" : row_index.loc['tpl'], "publicArrive" : row_index.loc['pta'], 
+                                       "publicDepart" : row_index.loc['ptd'], "actArrive" : row_index.loc['arr_at'], 
+                                       "acdDepart" : row_index.loc['dep_at'] }
+                            # journey = { "rid" : i, "tpl" : self.data.tpl, "publicArrive" : self.data.pta, "publicDepart" : self.data.ptd, "actArrive" : self.data.arr_at, "actDedpart" : self.data.dep_at }
+                            journies= np.append(journies[x], journey)
+                        else:
+                            break
+                    visited_rows.append(row.Index)
+
+                print(self.df[0])
+                x += 1
+                self.df.append(journies)
+                """
         
 
         # for row in self.data.itertuples():
