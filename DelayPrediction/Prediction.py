@@ -81,24 +81,25 @@ class Predictions:
         departure_journeys = []
         arrival_journeys = []
         t_depart_s = (datetime.datetime.strptime(Tdepart, '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
-        journies = {} # I'm not sure atm if we need this to be sorted, but there's an ordered dict if we need to use it.
+        journeys = {} # I'm not sure atm if we need this to be sorted, but there's an ordered dict if we need to use it.
 
         # Make a dict of objects with each journey (RID)
         # Look for journeys that have both FROm and TO dep/arr time (no missing data)
         # Instead of row by row, go by RID from the dictionary
         #   if dep OR arr is NaN, skip the row
+        
+        query = "SELECT DISTINCT rid FROM main.TrainingData"
+        list_of_rids = self.db_connection.send_query(query).fetchall()
+        
+        print(list_of_rids[0][0])
 
         
         # TODO: make this dynamic in the future, for now we know that rids range from 201902017628973 to 201902287629041
-        for current_rid in range(201902017628973, 201902287629041):
+        for current_rid in list_of_rids:
             
             # Query to extract info from the database by RIDs
             query = "SELECT tpl, pta, ptd, arr_at, dep_at FROM main.TrainingData WHERE rid=?"
-            result = self.db_connection.send_query(query, [current_rid]).fetchall()
-            
-            if not result:
-                # This means the rid doesn't exist in the table, so do nothing.
-                continue
+            result = self.db_connection.send_query(query, [current_rid[0]]).fetchall()
             
             
             """
@@ -122,7 +123,7 @@ class Predictions:
                 current_rid_journey.append(journey_info)
             
             # Add this list to the main dictionary, by using the RID as the key
-            journies[current_rid] = current_rid_journey 
+            journeys[current_rid[0]] = current_rid_journey 
             
             # We don't need this anymore, but I'm keeping it until we are 100% sure this works.
             """    
@@ -155,7 +156,6 @@ class Predictions:
                 x += 1
                 self.df.append(journies)
                 """
-        
 
         # for row in self.data.itertuples():
             
