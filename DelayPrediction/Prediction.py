@@ -1,13 +1,15 @@
+import sys, os
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
 import numpy as np
 from sklearn import preprocessing, neighbors
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 import pandas as pd
-import csv, os
+import csv
 import datetime
-
-import sys
-sys.path.append('../') # This is temporarily here because i just wanna get the database to work for now.
 from Database.DatabaseConnector import DBConnection
 
 class Predictions:
@@ -16,7 +18,7 @@ class Predictions:
         self.arrival_station = ""
         self.time_departure = ""
         self.db_connection = DBConnection('AKODatabase.db')
-        # self.data = pd.read_csv('..//TrainingData/NRCH_LIVST_OD_a51_2019_2_2.csv')
+        self.journeys = {}
         self.stations = {
                 "norwich" : "NRCH",
                 "diss" : "DISS",
@@ -31,30 +33,58 @@ class Predictions:
                 "stanford" : "STFD",
                 "liverpool st" : "LIVST"
             }
-        self.df = [[]]
-        # x, y = 0
+        self.harvest_data()
 
-        # for i in (self.data.rid.unique()):
-        #     # Get only those rows that have the same RID
-        #     rows_lambda = self.data.apply(lambda x: True if x['rid'] == i else False, axis = 1)
-        #     for j in range(len(rows_lambda[rows_lambda == True].index)):
-        #         if rows_lambda[rows_lambda == True].any():
-        #             journey = { "rid" : i, "tpl" : self.data.tpl, "publicArrive" : self.data.pta, "publicDepart" : self.data.ptd, "actArrive" : self.data.arr_at, "actDedpart" : self.data.dep_at }
-        #             self.df.append(journey)
+
+    def harvest_data(self):
+        """
+
+        Get all CSV file data from the database and returns it as object
+
+        """
+        
+        query = "SELECT DISTINCT rid FROM main.TrainingData"
+        list_of_rids = self.db_connection.send_query(query).fetchall()
+
+        for current_rid in list_of_rids:
+            
+            # Query to extract info from the database by RIDs
+            query = "SELECT tpl, pta, ptd, arr_at, dep_at FROM main.TrainingData WHERE rid=?"
+            result = self.db_connection.send_query(query, [current_rid[0]]).fetchall()
+
+            # This list will store the dictionary of info about this journey from this specific RID
+            current_rid_journey = []
+            
+            for row in result:
+                # Iterate through each row and turn it into a dictionary..
+                journey_info = {
+                    "station": row[0],
+                    "publicArrival": row[1],
+                    "publicDepart": row[2],
+                    "actArrival": row[3],
+                    "actDepart": row[4]
+                }
                 
-
-   
+                # And add it to the list
+                current_rid_journey.append(journey_info)
+            
+            # Add this list to the main dictionary, by using the RID as the key
+            self.journeys[current_rid[0]] = current_rid_journey
 
     def station_finder(self, station):
         """
-        function to find the corresponding station abbreviation based on the
+        Function to find the corresponding station abbreviation based on the
         provided station from user
 
-        Input:
-        station - string of station name - i.e. Ipswich
+        Parameters
+        ----------
+        station: string 
+            Station name - i.e. Ipswich
 
-        Output:
-        string - abbreviation of the station provided
+        Returns
+        -------
+        string:
+            Abbreviation of the station provided
         """
         
         x = station.lower()
@@ -65,236 +95,110 @@ class Predictions:
     def knn(self, FROM, TO, Tdepart):
         """
         Finding closest arrival time FROM, TO, TIME departure
-        Input:
-        FROM - string - departing station
-        TO - string - arriving station
-        Tdepart - string - time of departure FROM station
+        Parameters
+        ----------
+        FROM: string 
+            departing station
+        TO: string 
+            arriving station
+        Tdepart: string
+            time of departure FROM station
 
-        Output:
-        string - predicted time of arrival on TO station.
+        Returns
+        -------
+        string:
+            predicted time of arrival on TO station.
         """
         
         self.departure_station = self.station_finder(FROM)
         self.arrival_station = self.station_finder(TO)
         self.time_departure = Tdepart
  
-        departure_journeys = []
-        arrival_journeys = []
+        departure_data = []
+        arrival_data = []
         t_depart_s = (datetime.datetime.strptime(Tdepart, '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
-        journeys = {} # I'm not sure atm if we need this to be sorted, but there's an ordered dict if we need to use it.
+        
 
-        # Make a dict of objects with each journey (RID)
-        # Look for journeys that have both FROm and TO dep/arr time (no missing data)
-        # Instead of row by row, go by RID from the dictionary
-        #   if dep OR arr is NaN, skip the row
-        
-        query = "SELECT DISTINCT rid FROM main.TrainingData"
-        list_of_rids = self.db_connection.send_query(query).fetchall()
-        
-        print(list_of_rids[0][0])
+        for i in self.journeys:
+            dep_args = (i, self.departure_station)
+            arr_args = (i, self.arrival_station)
+            has_dep = "SELECT tpl, ptd, arr_at, dep_at FROM main.TrainingData WHERE rid = ? AND tpl = ? AND dep_at IS NOT NULL"
+            has_arr = "SELECT tpl, pta, arr_at, dep_at FROM main.TrainingData WHERE rid = ? AND tpl = ? AND arr_at IS NOT NULL"
+            dep_has_values = self.db_connection.send_query(has_dep, dep_args).fetchall()
+            arr_has_values = self.db_connection.send_query(has_arr, arr_args).fetchall()
 
-        
-        # TODO: make this dynamic in the future, for now we know that rids range from 201902017628973 to 201902287629041
-        for current_rid in list_of_rids:
-            
-            # Query to extract info from the database by RIDs
-            query = "SELECT tpl, pta, ptd, arr_at, dep_at FROM main.TrainingData WHERE rid=?"
-            result = self.db_connection.send_query(query, [current_rid[0]]).fetchall()
-            
-            
-            """
-                list of dictionaries, link them with rid by by putting them as a dictionary
-            """
-            # This list will store the dictionary of info about this journey from this specific RID
-            current_rid_journey = []
-            
-            for row in result:
-                # Iterate through each row and turn it into a dictionary..
+            if (dep_has_values[0][3] != '') and (arr_has_values[0][3] != ''):
+                for j in self.journeys[i]:
+                    if j['station'] == self.departure_station:
+                        departure_data.append(j['actDepart'])
+                    elif j['station'] == self.arrival_station:
+                        arrival_data.append(j['actArrival'])
+            else:
+                continue
                 
-                journey_info = {
-                    "tpl": row[0], # I'm assuming this was supposed to be named station or sth? TODO: ask Kaloyan
-                    "publicArrive": row[1],
-                    "publicDepart": row[2],
-                    "actArrive": row[3],
-                    "acdDepart": row[4]
-                }
-                
-                # And add it to the list
-                current_rid_journey.append(journey_info)
-            
-            # Add this list to the main dictionary, by using the RID as the key
-            journeys[current_rid[0]] = current_rid_journey 
-            
-            # We don't need this anymore, but I'm keeping it until we are 100% sure this works.
-            """    
-            for i in (self.data.rid.unique()):
-                journies[x].append(i) # DON'T TOUCH TIHS!
-                print(i)
-                # Get only those rows that have the same RID
-                # rows_lambda = self.data.apply(lambda x: True if x['rid'] == i else False, axis = 1)
-                for row in self.data.itertuples():
-                    print(len(self.df))
-                    print(row)
-                    row_index = self.data.loc[row.Index]
-                    print(type(row_index))
-
-                    print(type(row_index))
-
-                    if (row_index not in visited_rows):
-                        if (row_index['rid'] == i):
-                            print("rid matches i")
-                            journey = { "rid" : row_index.loc['rid'], "tpl" : row_index.loc['tpl'], "publicArrive" : row_index.loc['pta'], 
-                                       "publicDepart" : row_index.loc['ptd'], "actArrive" : row_index.loc['arr_at'], 
-                                       "acdDepart" : row_index.loc['dep_at'] }
-                            # journey = { "rid" : i, "tpl" : self.data.tpl, "publicArrive" : self.data.pta, "publicDepart" : self.data.ptd, "actArrive" : self.data.arr_at, "actDedpart" : self.data.dep_at }
-                            journies= np.append(journies[x], journey)
-                        else:
-                            break
-                    visited_rows.append(row.Index)
-
-                print(self.df[0])
-                x += 1
-                self.df.append(journies)
-                """
-
-        # for row in self.data.itertuples():
-            
-        #     # Departing station
-        #     if self.departure_station in row:
-        #         df_dep = self.data.loc[row.Index] # get the current row
-        #         # Check if the tuple is NOT EMPTY
-        #         if ( df_dep.loc['ptd'] == df_dep.loc['ptd'] ) and ( df_dep.loc['dep_at'] == df_dep.loc['dep_at'] ):
-        #             # Difference in time between expected departure and actual departure in seconds.
-        #             ptd_s = (datetime.datetime.strptime(df_dep.loc['ptd'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
-        #             dep_at_s = (datetime.datetime.strptime(df_dep.loc['dep_at'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
-        #             # diff_in_sec = dep_at_s - ptd_s
-        #             departure_journeys.append({ "id" : df_dep.loc['rid'], "dep_difference" : dep_at_s})
-        #     # Arriving station
-        #     elif self.arrival_station in row:
-        #         if len(arrival_journeys) > len(departure_journeys):
-        #             continue
-
-        #         df_arr = self.data.loc[row.Index] # get the current row
-        #         # Check if the tuple is NOT EMPTY
-        #         if ( df_arr.loc['pta'] == df_arr.loc['pta'] ) and ( df_arr.loc['arr_at'] == df_arr.loc['arr_at'] ):
-        #             # Difference in time between expected departure and actual departure in seconds.
-        #             pta_s = (datetime.datetime.strptime(df_arr.loc['pta'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
-        #             arr_at_s = (datetime.datetime.strptime(df_arr.loc['arr_at'], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
-        #             # diff_in_sec = arr_at_s - pta_s
-        #             arrival_journeys.append({ "id" : df_arr.loc['rid'], "dep_difference" : arr_at_s})
-
-        # X = []
-        # y = []
-        # # Selecting on specific tuple from the dictionaries - dep_difference
-        # for i in range(len(departure_journeys)):
-        #     X.append(departure_journeys[i]['dep_difference'])
-
-        # for i in range(len(arrival_journeys)):
-        #     y.append(arrival_journeys[i]['dep_difference'])
-
-        # # turn the variables into numpy arrays so they can be reshaped for training the model.
-        # X = np.array(X)
-        # y = np.array(y)
-        # t_depart_s = np.array(t_depart_s)
-
-        # # Splitting data into 80-20 train/test
-        # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
-
-        # # Reshape the data into 2D arrays so it can be used to train
-        # X_train = X_train.reshape(-1, 1)
-        # y_train = y_train.reshape(-1, 1)
-        # X_test = X_test.reshape(-1, 1)
-        # y_test = y_test.reshape(-1, 1)
-        # t_depart_s = t_depart_s.reshape(-1, 1)
-
-        # # Specifying type of classification and training
-        # clf = neighbors.KNeighborsRegressor()
-        # clf.fit(X_train, y_train)
-
-        # mse = mean_squared_error(X_test, y_test)
-        # print("Mean squared error is: ", mse)
-
-        # prediction_s = clf.predict(t_depart_s)
-        # prediction_h = int(prediction_s[0][0] / 3600)
-        # prediction_s = prediction_s - (prediction_h * 3600)
-        # prediction_m = int(prediction_s[0][0] / 60)
-        # prediction_s = prediction_s - (prediction_m * 60)
-        # prediction_s = int(prediction_s[0][0] % 60)
-
-        # print(prediction_h, prediction_m, prediction_s)
-        # print("Your journey will be delayed by " + str(prediction_m) + " minutes and " + str(prediction_s) + " seconds.")
-
-        # # Loop through the csv file and store specific rows in object.
-        # for row in data.itertuples():
-        #     # Departing station
-        #     if self.departure_station in row:
-        #         df_dep = data.loc[row.Index]
-        #         # Check if the tuple is NOT EMPTY
-        #         if ( df_dep.loc['arr_at'] == df_dep.loc['arr_at'] ) and ( df_dep.loc['dep_at'] == df_dep.loc['dep_at'] ):
-        #             departure_journeys.append({ "id" : df_dep.loc['rid'], "arr_at" : df_dep.loc['arr_at'], "dep_at" : df_dep.loc['dep_at']})
-        #         # print(train_journeys)
-        #     # Arriving station
-        #     elif self.arrival_station in row:
-        #         df_arr = data.loc[row.Index]
-        #         # Check if the tuple is NOT EMPTY
-        #         if ( df_arr.loc['arr_at'] == df_arr.loc['arr_at'] ) and ( df_arr.loc['dep_at'] == df_arr.loc['dep_at'] ):
-        #             arrival_journeys.append({ "id" : df_arr.loc['rid'], "arr_at" : df_arr.loc['arr_at'], "dep_at" : df_arr.loc['dep_at']})
-        #         # print(train_journeys)
-        
-        # # Train the model model
-        # X = []
-        # y = []
-        # for j in range(len(departure_journeys)):
-        #     b = float(departure_journeys[j]['dep_at'].replace(":", "."))
-        #     X.append([b])
-        # for j in range(len(arrival_journeys)):
-        #     c = float(arrival_journeys[j]['arr_at'].replace(":", "."))
-        #     y.append([c])
-        
-        # # X = np.array(X)
-        # # y = np.array(y)
-
-        # if len(X) > len(y):
-        #     X = X[:len(y)]
-        # elif len(y) > len(X):
-        #     y = y[:len(X)]
-
-        # X_encoded = preprocessing.LabelEncoder().fit_transform(X)
-        # y_encoded = preprocessing.LabelEncoder().fit_transform(y)
-
-        # X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size = 0.2)
-
-        # clf = neighbors.KNeighborsClassifier()
-        # clf.fit(X_train, y_train)
-
-        # accuracy = clf.score(X_test, y_test)
-        # print(accuracy)
-
-         
-            
-
-        # # public timetable arrival/dedparture, working timetable arrive/departure
-        # df = data[['pta', 'ptd', 'wta', 'wtd', 'arr_at']]
-        # print(df.head())
-        
-
-        
-# 1) Write a funct that separates each journey in an object. - Pull all FROM and TO journies into an array so we can use it later.
-# 
-#   Pull data and turn into object. Store data between given stations FROM and TO. Store only rid, arr_at, dep_at.
-#   Run knn - X dep_at ; Y - arr_at  => clf = sklearn.neighbors.KNeighborsClassifier()
-#   clf.fit(x_train, y_train)
-#   
-#   clf.predict(INPUT-time?)
 
 
-# loop through file, search for FROM
-#   until row containing TO in the "tpl" column:
-#   store rows that have arr_at != Null
-# repeat loop
+        # Change string values in the departure data to flaot so they can be plotted
+        X = []
+        Y = []
+        for i in range(len(departure_data)):
+            try:
+                a = float(departure_data[i].replace(":", "."))
+                X.append(a)
+            except:
+                print("Unable to convert string")
+                departure_data[i] = '0.0' + departure_data[i]
+                a = float(departure_data[i])
+                X.append(a)
+        for j in range(len(arrival_data)):
+            try:
+                b = float(arrival_data[j].replace(":","."))
+                Y.append(b)
+            except:
+                print("Unable to convert string")
+                arrival_data[j] = '0.0' + arrival_data[j]
+                b = float(arrival_data[j])
+                Y.append(b)
 
+        # turn the variables into numpy arrays so they can be reshaped for training the model.
+        X = np.array(X)
+        Y = np.array(Y)
+        t_depart_s = np.array(t_depart_s)
+
+        # Splitting data into 80-20 train/test
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
+
+        # Reshape the data into 2D arrays so it can be used to train
+        X_train = X_train.reshape(-1, 1)
+        y_train = y_train.reshape(-1, 1)
+        X_test = X_test.reshape(-1, 1)
+        y_test = y_test.reshape(-1, 1)
+        t_depart_s = t_depart_s.reshape(-1, 1)
+
+        # Specifying type of classification and training
+        clf = neighbors.KNeighborsRegressor()
+        clf.fit(X_train, y_train)
+
+
+        accuracy = clf.score(X_test, y_test)
+        print("accuracy:" , accuracy)
+        mse = mean_squared_error(X_test, y_test)
+        print("Mean squared error is: ", mse)
+
+        prediction_s = clf.predict(t_depart_s)
+        prediction_h = int(prediction_s[0][0] / 3600)
+        prediction_s = prediction_s - (prediction_h * 3600)
+        prediction_m = int(prediction_s[0][0] / 60)
+        prediction_s = prediction_s - (prediction_m * 60)
+        prediction_s = int(prediction_s[0][0] % 60)
+
+        print("hh: "+ str(prediction_h) + " mm: " + str(prediction_m) + " ss:" + str(prediction_s))
+        if (prediction_h == 0) and (prediction_m == 0):
+            print("Your journey is expected to be delayed by less than a minute.")
+        else:
+            print("Your journey is expected to be delayed by " + str(prediction_m) + " minutes and " + str(prediction_s) + " seconds.")
 
 
 pr = Predictions()
 # pr.station_finder("Norwich")
-pr.knn("Norwich", "Diss", "15:38")
+pr.knn("Norwich", "Colchester", "11:30")
