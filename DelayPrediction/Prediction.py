@@ -43,13 +43,13 @@ class Predictions:
 
         """
         
-        query = "SELECT DISTINCT rid FROM main.TrainingData"
+        query = "SELECT DISTINCT rid FROM main.March2019Data"
         list_of_rids = self.db_connection.send_query(query).fetchall()
 
         for current_rid in list_of_rids:
             
             # Query to extract info from the database by RIDs
-            query = "SELECT tpl, pta, ptd, arr_at, dep_at FROM main.TrainingData WHERE rid=?"
+            query = "SELECT tpl, pta, ptd, arr_at, dep_at FROM main.March2019Data WHERE rid=?"
             result = self.db_connection.send_query(query, [current_rid[0]]).fetchall()
 
             # This list will store the dictionary of info about this journey from this specific RID
@@ -122,8 +122,8 @@ class Predictions:
         for i in self.journeys:
             dep_args = (i, self.departure_station)
             arr_args = (i, self.arrival_station)
-            has_dep = "SELECT tpl, ptd, arr_at, dep_at FROM main.TrainingData WHERE rid = ? AND tpl = ? AND dep_at IS NOT NULL"
-            has_arr = "SELECT tpl, pta, arr_at, dep_at FROM main.TrainingData WHERE rid = ? AND tpl = ? AND arr_at IS NOT NULL"
+            has_dep = "SELECT tpl, ptd, arr_at, dep_at FROM main.March2019Data WHERE rid = ? AND tpl = ? AND dep_at IS NOT NULL"
+            has_arr = "SELECT tpl, pta, arr_at, dep_at FROM main.March2019Data WHERE rid = ? AND tpl = ? AND arr_at IS NOT NULL"
             dep_has_values = self.db_connection.send_query(has_dep, dep_args).fetchall()
             arr_has_values = self.db_connection.send_query(has_arr, arr_args).fetchall()
 
