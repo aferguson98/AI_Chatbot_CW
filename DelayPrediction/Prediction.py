@@ -116,6 +116,7 @@ class Predictions:
  
         departure_data = []
         arrival_data = []
+        t_d = float(Tdepart.replace(":","."))
         t_depart_s = (datetime.datetime.strptime(Tdepart, '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
         
 
@@ -127,14 +128,15 @@ class Predictions:
             dep_has_values = self.db_connection.send_query(has_dep, dep_args).fetchall()
             arr_has_values = self.db_connection.send_query(has_arr, arr_args).fetchall()
 
-            if (dep_has_values[0][3] != '') and (arr_has_values[0][3] != ''):
-                for j in self.journeys[i]:
-                    if j['station'] == self.departure_station:
-                        departure_data.append(j['actDepart'])
-                    elif j['station'] == self.arrival_station:
-                        arrival_data.append(j['actArrival'])
-            else:
-                continue
+            if dep_has_values and arr_has_values:
+                if (dep_has_values[0][3] != '') and (arr_has_values[0][3] != ''):
+                    for j in self.journeys[i]:
+                        if j['station'] == self.departure_station:
+                            departure_data.append(j['actDepart'])
+                        elif j['station'] == self.arrival_station:
+                            arrival_data.append(j['actArrival'])
+                else:
+                    continue
                 
 
 
@@ -163,7 +165,7 @@ class Predictions:
         # turn the variables into numpy arrays so they can be reshaped for training the model.
         X = np.array(X)
         Y = np.array(Y)
-        t_depart_s = np.array(t_depart_s)
+        t_d = np.array(t_d)
 
         # Splitting data into 80-20 train/test
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
@@ -173,7 +175,7 @@ class Predictions:
         y_train = y_train.reshape(-1, 1)
         X_test = X_test.reshape(-1, 1)
         y_test = y_test.reshape(-1, 1)
-        t_depart_s = t_depart_s.reshape(-1, 1)
+        t_d = t_d.reshape(-1, 1)
 
         # Specifying type of classification and training
         clf = neighbors.KNeighborsRegressor()
@@ -185,20 +187,21 @@ class Predictions:
         mse = mean_squared_error(X_test, y_test)
         print("Mean squared error is: ", mse)
 
-        prediction_s = clf.predict(t_depart_s)
-        prediction_h = int(prediction_s[0][0] / 3600)
-        prediction_s = prediction_s - (prediction_h * 3600)
-        prediction_m = int(prediction_s[0][0] / 60)
-        prediction_s = prediction_s - (prediction_m * 60)
-        prediction_s = int(prediction_s[0][0] % 60)
+        prediction_s = clf.predict(t_d)
+        print("Maybe arrival time?: " , prediction_s[0])
+        # prediction_h = int(prediction_s[0][0] / 3600)
+        # prediction_s = prediction_s - (prediction_h * 3600)
+        # prediction_m = int(prediction_s[0][0] / 60)
+        # prediction_s = prediction_s - (prediction_m * 60)
+        # prediction_s = int(prediction_s[0][0] % 60)
 
-        print("hh: "+ str(prediction_h) + " mm: " + str(prediction_m) + " ss:" + str(prediction_s))
-        if (prediction_h == 0) and (prediction_m == 0):
-            print("Your journey is expected to be delayed by less than a minute.")
-        else:
-            print("Your journey is expected to be delayed by " + str(prediction_m) + " minutes and " + str(prediction_s) + " seconds.")
+        # print("hh: "+ str(prediction_h) + " mm: " + str(prediction_m) + " ss:" + str(prediction_s))
+        # if (prediction_h == 0) and (prediction_m == 0):
+        #     print("Your journey is expected to be delayed by less than a minute.")
+        # else:
+        #     print("Your journey is expected to be delayed by " + str(prediction_m) + " minutes and " + str(prediction_s) + " seconds.")
 
 
 pr = Predictions()
 # pr.station_finder("Norwich")
-pr.knn("Norwich", "Colchester", "11:30")
+pr.knn("Norwich", "Colchester", "13:10")
