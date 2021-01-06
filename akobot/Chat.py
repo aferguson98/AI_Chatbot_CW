@@ -27,13 +27,22 @@ class Chat:
             self.chat_engine.reset()
             self.chat_engine.declare(Fact(message_text=message_text))
             self.chat_engine.run()
+            print(self.chat_engine.facts)
             message_dict = self.chat_engine.message.pop(0)
             return [message_dict['message'],
                     message_dict['suggestions'],
                     message_dict['response_req']]
 
     def pop_message(self):
-        message_dict = self.chat_engine.message.pop(0)
+        if len(self.chat_engine.message) > 0:
+            message_dict = self.chat_engine.message.pop(0)
+        else:
+            message_dict = {
+                'message': "Sorry! Something has gone wrong with this chat. "
+                           "Please reload the page",
+                'suggestions': ["Reload Page"],
+                'response_req': True
+            }
         return [message_dict['message'],
                 message_dict['suggestions'],
                 message_dict['response_req']]

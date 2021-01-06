@@ -64,6 +64,9 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
                 $('main').css('width', 'calc(100% - 400px)');
                 $('.side-bar').css("transform", "scaleX(1)");
             }
+            if(messageObject.text.includes("{REQ:DEP}")){
+                navigator.geolocation.getCurrentPosition(getNearestStations);
+            }
             if(messageObject.response_req === false){
                 sendInputData("POPMSG", false, "true");
             }
@@ -174,7 +177,7 @@ function changeUIFromTags(messageText, updatedTime){
             case 'RTM':
                 updateTicketField('in', value, updatedTime)
                 break;
-            case 'TYP':
+            case 'RET':
                 updateTicketField('ticket-header', value, updatedTime)
                 break;
             case 'ADT':
@@ -187,4 +190,30 @@ function changeUIFromTags(messageText, updatedTime){
                 break;
        }
     });
+}
+
+function getNearestStations(latlng){
+    let app_id = "e229607b";
+    let app_key = "4ddd3f57cd0074f8cdd69b89454f81ef";
+    let counter = 0;
+    let lat = latlng.coords.latitude;
+    let lng = latlng.coords.longitude;
+    let suggestion_container = `<div class="suggestions-container">`;
+    let url = "https://transportapi.com/v3/uk/places.json";
+    $.ajax({
+            type: "GET",
+            url: `${url}?app_id=${app_id}&app_key=${app_key}&lat=${lat}&lon=${lng}&type=train_station`,
+            datatype: "JSON",
+            success: function (output) {
+                output.member.forEach(function (elem) {
+                    if (counter < 3) {
+                        suggestion_container += `<div class="suggestion" onclick="sendInputData('{TAG:DEP}${elem.name}');
+                                              sendMessage('${elem.name}');">${elem.name}</div>`
+                        counter++;
+                    }
+                });
+                $('#chat').append(suggestion_container + "</div>");
+            }
+        }
+    )
 }

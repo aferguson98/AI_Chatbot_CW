@@ -17,14 +17,16 @@ TokenDictionary = {
     "book": [{"LEMMA": {"IN": ["book", "booking", "purchase", "buy"]}}],
     "delay": [{"LEMMA": {"IN": ["delay", "predict", "prediction"]}}],
     "help": [{"LEMMA": {"IN": ["help", "support", "assistance"]}}],
-    "yes": ["yes", "yeah", "y", "yep", "yeh", "ye"],
-    "no": ["no", "nope", "n", "nah", "na"],
+    "yes": [{"LOWER": {"IN": ["yes", "yeah", "y", "yep", "yeh", "ye", "👍"]}}],
+    "no": [{"LOWER": {"IN": ["no", "nope", "n", "nah", "na", "👎"]}}],
     "depart": [{"POS": "ADP", "LEMMA": {"IN": ["depart", "from", "departing"]}},
                {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
     "arrive": [{"POS": "ADP", "LEMMA": {"IN": ["arrive", "to", "arriving"]}},
                {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
 
 }
+
+# I want to book a ticket from London Liverpool Street to Norwich
 
 
 def get_similarity(comparator_a, comparator_b):
@@ -63,6 +65,7 @@ class ChatEngine(KnowledgeEngine):
 
         # Knowledge dict
         self.knowledge = {}
+        self.booking_progress = "at_al_dt_dl_rs_na_nc_"
 
         # User Interface output
         self.def_message = {"message": "I'm sorry. I don't know how to help "
@@ -126,7 +129,7 @@ class ChatEngine(KnowledgeEngine):
             return result[0]
         else:
             # Station code not input - try searching by station name
-            query = ("SELECT identifier, name FROM main.Stations WHERE  name=? "
+            query = ("SELECT identifier, name FROM main.Stations WHERE name=? "
                      "COLLATE NOCASE")
             result = self.db_connection.send_query(query,
                                                    (search_station,)
@@ -157,6 +160,9 @@ class ChatEngine(KnowledgeEngine):
             yield Fact(**this_fact)
         if "action" not in self.knowledge.keys():
             yield Fact(action="chat")
+        if "complete" not in self.knowledge.keys():
+            yield Fact(complete=False)
+        yield Fact(extra_info_req=False)
 
     @Rule(AS.f1 << Fact(action="chat"),
           Fact(message_text=MATCH.message_text))
@@ -182,8 +188,6 @@ class ChatEngine(KnowledgeEngine):
                                       " right hand side as we go.",
                                       req_response=False)
             self.modify(f1, action="book")
-            self.declare(Fact(complete=False))
-            self.declare(Fact(extra_info_req=False))
         else:
             matcher.add("DELAY_PATTERN", None, TokenDictionary['delay'])
             matches = matcher(doc)
@@ -226,6 +230,7 @@ class ChatEngine(KnowledgeEngine):
         """
         doc = self.nlp_engine.process(message_text)
         message = ""
+        extra_info_appropriate = True
 
         # Departure Station
         dep_found_mul_msg = ("I found a few departure stations that matched {}."
@@ -240,13 +245,16 @@ class ChatEngine(KnowledgeEngine):
                 station = self.find_station(search_station)
                 message += "{DEP:" + station[1] + "}"
                 self.declare(Fact(depart=station[0]))
+                self.booking_progress.replace("dl_", "")
             except StationNoMatchError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     dep_found_mul_msg.format(search_station),
                     suggestions=["{TAG:DEP}" + alternative[1]
                                  for alternative in e.alternatives]
                 )
             except StationNotFoundError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     dep_found_none_msg.format(search_station)
                 )
@@ -255,15 +263,17 @@ class ChatEngine(KnowledgeEngine):
             try:
                 station = self.find_station(search_station)
                 message += "{DEP:" + station[1] + "}"
-                self.suggestions = []
                 self.declare(Fact(depart=station[0]))
+                self.booking_progress.replace("dl_", "")
             except StationNoMatchError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     dep_found_mul_msg.format(search_station),
                     suggestions=["{TAG:DEP}" + alternative[1]
                                  for alternative in e.alternatives]
                 )
             except StationNotFoundError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     dep_found_none_msg.format(search_station)
                 )
@@ -275,20 +285,22 @@ class ChatEngine(KnowledgeEngine):
                               "matching {}. Please try again.")
 
         arr = self.get_matches(doc, TokenDictionary["arrive"])
-        print(arr)
         if arr is not None:
             search_station = str(arr[1:])
             try:
                 station = self.find_station(search_station)
                 message += "{ARR:" + station[1] + "}"
                 self.declare(Fact(arrive=station[0]))
+                self.booking_progress.replace("al_", "")
             except StationNoMatchError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     arr_found_mul_msg.format(search_station),
                     suggestions=["{TAG:ARR}" + alternative[1]
                                  for alternative in e.alternatives]
                 )
             except StationNotFoundError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     arr_found_none_msg.format(search_station)
                 )
@@ -298,25 +310,106 @@ class ChatEngine(KnowledgeEngine):
                 station = self.find_station(search_station)
                 message += "{ARR:" + station[1] + "}"
                 self.declare(Fact(arrive=station[0]))
+                self.booking_progress.replace("al_", "")
             except StationNoMatchError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     arr_found_mul_msg.format(search_station),
                     suggestions=["{TAG:ARR}" + alternative[1]
                                  for alternative in e.alternatives]
                 )
             except StationNotFoundError as e:
+                extra_info_appropriate = False
                 self.add_to_message_chain(
                     arr_found_none_msg.format(search_station)
                 )
+
+        if "{TAG:RET}" in message_text:
+            ret = self.get_matches(doc, TokenDictionary['yes'])
+            if ret is not None:
+                message += "{RET:RETURN}"
+                self.declare(Fact(returning="True"))
+            elif self.get_matches(doc, TokenDictionary['no']) is not None:
+                message += "{RET:SINGLE}{RTM:N/A}"
+                self.declare(Fact(returning="False"))
+
+        if "{TAG:ADT}" in message_text:
+            adults = message_text.replace("{TAG:ADT}", "")
+            self.declare(Fact(no_adults=adults))
+            message += "{ADT:" + adults + "}"
+
+        if "{TAG:CHD}" in message_text:
+            children = message_text.replace("{TAG:CHD}", "")
+            self.declare(Fact(no_children=children))
+            message += "{CHD:" + children + "}"
+
         self.add_to_message_chain(message, priority=7)
+
+        if len(self.booking_progress) != 0 and extra_info_appropriate:
+            self.modify(f2, extra_info_req=True)
+        elif len(self.booking_progress) == 0:
+            self.modify(f1, complete=True)
 
     # # Request Extra Info # #
     @Rule(Fact(action="book"),
-          AS.f1 << Fact(extra_info_req=True),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
           NOT(Fact(depart=W())))
-    def ask_for_departure(self, f1):
+    def ask_for_departure(self):
         """Decides if need to ask user for the departure point"""
-        self.message = "And where are you travelling from?"
+        self.add_to_message_chain("{REQ:DEP}And where are you travelling from?",
+                                  1)
+        self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="book"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(arrive=W())))
+    def ask_for_arrival(self):
+        """Decides if need to ask user for the arrival point"""
+        self.add_to_message_chain("{REQ:ARR}And where are you travelling to?",
+                                  1)
+        self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="book"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(returning=W())))
+    def ask_for_return(self):
+        """Decides if need to ask user whether they're returning"""
+        self.add_to_message_chain("{REQ:RET}And are you returning?", 1,
+                                  suggestions=["{TAG:RET}👍", "{TAG:RET}👎"])
+        self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="book"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(no_adults=W())))
+    def ask_for_no_adults(self):
+        """Decides if need to ask user for number of adults"""
+        self.add_to_message_chain("{REQ:ADT}How many adults (16+) will be "
+                                  "travelling?", 1,
+                                  suggestions=["{TAG:ADT}1", "{TAG:ADT}2",
+                                               "{TAG:ADT}3", "{TAG:ADT}4",
+                                               "{TAG:ADT}5", "{TAG:ADT}6",
+                                               "{TAG:ADT}7", "{TAG:ADT}8",
+                                               "{TAG:ADT}9", "{TAG:ADT}10"])
+        self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="book"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(no_children=W())))
+    def ask_for_no_children(self):
+        """Decides if need to ask user for number of children"""
+        self.add_to_message_chain("{REQ:CHD}How many children (under 16) will "
+                                  "be travelling?", 1,
+                                  suggestions=["{TAG:CHD}1", "{TAG:CHD}2",
+                                               "{TAG:CHD}3", "{TAG:CHD}4",
+                                               "{TAG:CHD}5", "{TAG:CHD}6",
+                                               "{TAG:CHD}7", "{TAG:CHD}8",
+                                               "{TAG:CHD}9", "{TAG:CHD}10"])
+        self.declare(Fact(extra_info_requested=True))
 
     # DELAY ACTIONS
 
@@ -326,5 +419,6 @@ class ChatEngine(KnowledgeEngine):
     def add_all_facts_to_dict(self):
         for f in self.facts:
             for g, val in self.facts[f].items():
-                if g != "__factid__" and g != "message_text":
+                if g not in ["__factid__", "message_text", "extra_info_req",
+                             "extra_info_requested"]:
                     self.knowledge[g] = val
