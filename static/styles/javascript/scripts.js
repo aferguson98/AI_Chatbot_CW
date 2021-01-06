@@ -1,5 +1,6 @@
-// When doc.ready 
+// When doc.ready
 $(function () {
+
     sendInputData("", true)
 
     // Call AJAX to send message to back-end
@@ -37,7 +38,7 @@ function sendMessage(text) {
 }
 
 // AJAX call to back-end
-function sendInputData(user_message, isFirst=false) {
+function sendInputData(user_message, isFirst=false, isSystem="false") {
     if (user_message.trim() === '' && !isFirst) {
         return;
     }
@@ -51,11 +52,24 @@ function sendInputData(user_message, isFirst=false) {
         type: 'POST',
         url: '/chat',
         datatype:"json",
-        data: {"user_input" : user_message},
+        data: {"user_input" : user_message, "is_system": isSystem},
         success: function(output){
             messageObject.text = output.message;
             messageObject.suggestions = output.suggestions;
+            messageObject.response_req = output.response_req;
             messageObject.write(output);
+            changeUIFromTags(output.message, new Date().toTimeString().slice(0, 5));
+            //synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
+            if(messageObject.text.includes("Ok great, let's get your booking started!")){
+                $('main').css('width', 'calc(100% - 400px)');
+                $('.side-bar').css("transform", "scaleX(1)");
+            }
+            if(messageObject.text.includes("{REQ:DEP}")){
+                navigator.geolocation.getCurrentPosition(getNearestStations);
+            }
+            if(messageObject.response_req === false){
+                sendInputData("POPMSG", false, "true");
+            }
         },
         error: function(e){
             console.error("Could not send to backend: " + e.statusText);
@@ -69,6 +83,7 @@ function writeMessage(message) {
     this.text = message.text;
     this.side = message.side;
     this.suggestions = message.suggestions;
+    this.response_req = message.response_req;
     let author;
     if(this.side === 'left'){
         author = "bot";
@@ -80,18 +95,29 @@ function writeMessage(message) {
             let today = new Date();
             //  time of the message sent
             let time = today.toTimeString().slice(0, 5);
+            // remove any tags added by bot for UI display
+            let cleanText = localthis.text.replace(/\s?\{[^}]+\}/g, '')
             // building the message element with user message
             let msgElement = `<div class="message ${author}"><span class="icon">
-                </span><span class="content">${localthis.text}
+                </span><span class="content">${cleanText}
                 <span class="time">${time}</span></span></div>`;
             // append suggestions if exist
             if(localthis.suggestions.length > 0) {
                 msgElement += `<div class="suggestions-container">`;
                 localthis.suggestions.forEach((suggestion) => {
-                   msgElement += `<div class="suggestion" 
+                    if(suggestion !== "Reload Page") {
+                        // removes non-human readable portion of suggestions
+                        let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '')
+                        console.log(suggestionClean)
+                        msgElement += `<div class="suggestion" 
                                        onclick="sendInputData('${suggestion}');
-                                                sendMessage('${suggestion}');">
+                                                sendMessage('${suggestionClean}');">
+                                  ${suggestionClean}</div>`
+                    }else{
+                        msgElement += `<div class="suggestion"
+                                       onclick="window.location.reload()">
                                   ${suggestion}</div>`
+                    }
                 });
                 msgElement += `</div>`;
             }
@@ -100,4 +126,94 @@ function writeMessage(message) {
         };
     }(this); // Call write() with the message
     return this;
+}
+
+function synthesizeSpeech(text) {
+    let sdk = SpeechSDK
+    let ssml = `<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
+                <voice name="en-GB-RyanNeural">${text.replace("AKOBot", "akobot")}</voice></speak>`
+
+    const speechConfig = sdk.SpeechConfig.fromSubscription("be0b6d81b60844a084339d50a0b79832",
+                                                     "uksouth");
+    const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
+
+    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
+    synthesizer.speakSsmlAsync(
+        ssml,
+        result => {
+            if (result) {
+                console.log(JSON.stringify(result));
+            }
+            synthesizer.close();
+        },
+        error => {
+            console.log(error);
+            synthesizer.close();
+        });
+}
+
+function updateTicketField(tag, value, time){
+     $('.' + tag).text(value.toUpperCase());
+     $('#search-time').text(time)
+}
+
+function changeUIFromTags(messageText, updatedTime){
+    console.log(messageText)
+    let regex = new RegExp('{([^}]+)}', 'g');
+    let results = [...messageText.matchAll(regex)]
+    results.forEach(function(element){
+        let tagArr = element[1].split(":");
+        let tag = tagArr[0], value = tagArr[1];
+        switch (tag){
+            case 'DEP':
+                updateTicketField('from', value, updatedTime)
+                break;
+            case 'ARR':
+                updateTicketField('to', value, updatedTime)
+                break;
+            case 'DTM':
+                updateTicketField('out', value, updatedTime)
+                break;
+            case 'RTM':
+                updateTicketField('in', value, updatedTime)
+                break;
+            case 'RET':
+                updateTicketField('ticket-header', value, updatedTime)
+                break;
+            case 'ADT':
+                updateTicketField('adults', value, updatedTime)
+                break;
+            case 'CHD':
+                updateTicketField('child', value, updatedTime)
+                break;
+            default:
+                break;
+       }
+    });
+}
+
+function getNearestStations(latlng){
+    let app_id = "e229607b";
+    let app_key = "4ddd3f57cd0074f8cdd69b89454f81ef";
+    let counter = 0;
+    let lat = latlng.coords.latitude;
+    let lng = latlng.coords.longitude;
+    let suggestion_container = `<div class="suggestions-container">`;
+    let url = "https://transportapi.com/v3/uk/places.json";
+    $.ajax({
+            type: "GET",
+            url: `${url}?app_id=${app_id}&app_key=${app_key}&lat=${lat}&lon=${lng}&type=train_station`,
+            datatype: "JSON",
+            success: function (output) {
+                output.member.forEach(function (elem) {
+                    if (counter < 3) {
+                        suggestion_container += `<div class="suggestion" onclick="sendInputData('{TAG:DEP}${elem.name}');
+                                              sendMessage('${elem.name}');">${elem.name}</div>`
+                        counter++;
+                    }
+                });
+                $('#chat').append(suggestion_container + "</div>");
+            }
+        }
+    )
 }
