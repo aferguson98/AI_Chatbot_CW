@@ -11,6 +11,7 @@ import pandas as pd
 import csv
 import datetime
 from Database.DatabaseConnector import DBConnection
+from difflib import SequenceMatcher, get_close_matches
 
 class Predictions:
     def __init__(self):
@@ -51,9 +52,19 @@ class Predictions:
         """
         
         x = station.lower()
+        similar = ''
         if x in self.stations:
             return self.stations[x]
-
+        else:
+            for s in (self.stations):
+                ratio = SequenceMatcher(None, x, s).ratio() * 100
+                if ratio >= 60: # Need to check what value is acceptable. For "DS" a response "DISS" is found with value 66.666
+                    similar = s
+                    print(ratio)
+                    print("The city you've provided has not been found. Closest match to " + station + "  is: " + s.upper())
+            if similar == '':
+                print("No similar cities to " + station + " have been found. Please type again the station")
+            return similar
 
     def harvest_data(self):
         """
@@ -219,7 +230,8 @@ class Predictions:
 
 pr = Predictions()
 # pr.station_finder("Norwich")
-pr.predict_arrival("Norwich", "Colchester", "14:45")
+# pr.predict_arrival("Norwich", "Colchester", "14:45")
+pr.station_finder("DS")
 
 
 
