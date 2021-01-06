@@ -15,6 +15,25 @@
 			<div class="chat-container">
 				<div id="chat"></div>
 			</div>
+			<div class="side-bar">
+				<div class="container">
+					<h1 class="heading">Your Booking</h1>
+					<br/>
+					<div class="ticket">
+						<div class="ticket-header">XXXXXX</div>
+						<div class="ticket-container">
+							<div class="info from">XXXXXX</div>
+							<div class="info out">XX XXX XX @ XX:XX</div>
+							<div class="info to">XXXXXX</div>
+							<div class="info in">XX XXX XX @ XX:XX</div>
+							<div class="info adults">XXX</div>
+							<div class="info child">XXX</div>
+						</div>
+						<div class="ticket-icon"></div>
+						<div class="ticket-footer">Updated <span id="search-time">XX:XX</span></div>
+					</div>
+				</div>
+			</div>
 		</main>
 		<footer>
 			<form method="POST" id="message_form">
@@ -26,5 +45,6 @@
 		</footer>
 	</body>
 	<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@latest/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
 	<script src="../static/styles/javascript/scripts.js"></script>
 </html>

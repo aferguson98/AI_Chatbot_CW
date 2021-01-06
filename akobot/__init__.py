@@ -12,3 +12,9 @@ class StationNoMatchError(Exception):
 
 class StationNotFoundError(Exception):
     pass
+
+
+class UnknownPriorityException(Exception):
+    def __init__(self, priority):
+        message = "Priority {} is not a valid priority value."
+        self.message = message.format(priority)

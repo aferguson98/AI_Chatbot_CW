@@ -1,0 +1,86 @@
+.info{
+    position: relative;
+}
+
+.info:before{
+    font-size: 0.6em;
+    font-weight: 700;
+    top: -12px;
+    position: absolute;
+}
+
+.adults:before{
+    content: 'No. ADULTS';
+}
+
+.child:before{
+    content: 'No. CHILDREN'
+}
+
+.from:before{
+    content: 'FROM';
+}
+
+.in:before{
+    content: 'RETURN ON';
+}
+
+.out:before{
+    content: 'DEPART ON'
+}
+
+.ticket{
+    background: orangered;
+    border-radius: 10px;
+    padding-top: 56%;
+    position: relative;
+    width: 100%;
+}
+
+.ticket-container{
+    background-color: #fafbe7;
+    background-image: url("../../images/ticket_bg.png");
+    background-repeat: repeat;
+    background-size: 50px;
+    bottom: 30px;
+    display: grid;
+    grid-gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    left: 0;
+    padding: 20px 20px 10px 20px;
+    position: absolute;
+    right: 0;
+    top: 30px;
+    width: calc(100% - 40px);
+}
+
+.ticket-footer{
+    right: 10px;
+    position: absolute;
+    bottom: 5px
+}
+
+.ticket-header{
+    left: 10px;
+    position: absolute;
+    top: 5px;
+}
+
+.ticket-icon{
+    background-color: #FFFFFF;
+	background-image: url('../../images/robot_mono.png');
+	background-size: cover;
+	border-radius: 50%;
+    bottom: 5px;
+	display: inline-block;
+    position: absolute;
+	height: 20px;
+    left: 10px;
+	margin: 0 5px 0 0;
+	width: 20px;
+    vertical-align: middle;
+}
+
+.to:before{
+    content: 'TO';
+}
