@@ -4,12 +4,12 @@ parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 
 import numpy as np
-from sklearn import preprocessing, neighbors
+from sklearn import preprocessing, neighbors, svm
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 import csv
-import datetime
+from datetime import datetime, timedelta
 from Database.DatabaseConnector import DBConnection
 from difflib import SequenceMatcher, get_close_matches
 
@@ -18,6 +18,7 @@ class Predictions:
         self.departure_station = ""
         self.arrival_station = ""
         self.time_departure = ""
+        self.day_of_week = datetime.today().weekday()
         self.db_connection = DBConnection('AKODatabase.db')
         self.journeys = {}
         self.stations = {
@@ -88,7 +89,23 @@ class Predictions:
         result = self.db_connection.send_query(query).fetchall()
         return result
 
-    def predict(self, x_data, y_data):
+    def convert_time(self, time):
+        """
+        Convert given time (in seconds) to hours, minutes, seconds
+        """
+        tt = []
+        hh = int(time[0][0] / 3600)
+        tt.append(hh)
+        time[0][0] = time[0][0] - (hh * 3600)
+        mm = int(time[0][0] / 60)
+        tt.append(mm)
+        time[0][0] = time[0][0] - (mm * 60)
+        ss = int(time[0][0] % 60)
+        tt.append(ss)
+
+        return tt
+
+    def predict_knn(self, x_data, y_data):
         """
             KNN prediction
 
@@ -98,15 +115,16 @@ class Predictions:
                 Data serving as input
             y_data - array
                 Data serving as output
-            time - str
-                Time when user has departed station
 
             Returns
             -------
             Predicted value based on the input - time user will be delayed OR estimated arrival time to X station
         """
         
-        t_depart_s = (datetime.datetime.strptime(self.time_departure, '%H:%M') - datetime.datetime(1900,1,1)).total_seconds()
+        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
+        t_d = []
+        t_d.append(self.day_of_week)
+        t_d.append(t_depart_s)
 
         # turn the variables into numpy arrays so they can be reshaped for training the model.
         X = np.array(x_data)
@@ -129,58 +147,106 @@ class Predictions:
 
 
         accuracy = clf.score(X_test, y_test)
-        print("accuracy:" , accuracy)
+        print("KNN accuracy:" , accuracy * 100)
         mse = mean_squared_error(X_test, y_test)
-        print("Mean squared error is: ", mse)
+        print("KNN MSE: ", mse)
+        print("--------------------------------------")
 
         prediction_s = clf.predict(t_d)
 
         return prediction_s
 
 
-    def convert_time(self, time):
+    def predict_svm(self, x_data, y_data):
         """
-        Convert given time (in seconds) to hours, minutes, seconds
-        """
-        tt = []
-        hh = int(time[0][0] / 3600)
-        tt.append(hh)
-        time = time - (hh * 3600)
-        mm = int(time[0][0] / 60)
-        tt.append(mm)
-        time = time - (mm * 60)
-        ss = int(time[0][0] % 60)
-        tt.append(ss)
+            Support Vector Machines prediction
 
-        return tt
+            Parameters
+            ----------
+            x_data - array
+                Data serving as input
+            y_data - array
+                Data serving as output
+
+            Returns
+            -------
+            Predicted value based on the input - time user will be delayed OR estimated arrival time to X station
+        """
+        
+        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
+        t_d = []
+        t_d.append(self.day_of_week)
+        t_d.append(t_depart_s)
+
+        # turn the variables into numpy arrays so they can be reshaped for training the model.
+        X = np.array(x_data)
+        Y = np.array(y_data)
+        t_d = np.array(t_depart_s)
+
+        # Splitting data into 80-20 train/test
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
+
+        # Reshape the data into 2D arrays so it can be used to train
+        X_train = X_train.reshape(-1, 1)
+        y_train = y_train.reshape(-1, 1)
+        X_test = X_test.reshape(-1, 1)
+        y_test = y_test.reshape(-1, 1)
+        t_d = t_d.reshape(-1, 1)
+
+        # Specifying type of classification and training
+        clf = svm.SVC()
+        clf.fit(X_train, y_train.ravel())
+
+
+        accuracy = clf.score(X_test, y_test)
+        print("SVM accuracy:" , accuracy * 100)
+        mse = mean_squared_error(X_test, y_test)
+        print("Mean squared error is: ", mse)
+        print("--------------------------------------")
+
+        prediction_s = clf.predict(t_d)
+        p_s = self.convert_time(prediction_s)
+        print("arrival_time: ",p_s)
+
+        return prediction_s
+
 
     def predict_delay(self):
-
-        result = self.harvest_data()
- 
-        departure_data = [] # Departure time for all cases of departure_station
-        arrival_data = [] # Arrival time for all cases of arrival_station
+        """
+        Predicting how long the train will be delayed
+        """
         X = []
         Y = []
+        result = self.harvest_data()
 
         for journey in range(len(result)):
+            J = []
+            K = []
             #    public_departure            actual_departure              public_arrival               actual_arrival
             if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
-                # Add (actual departure - expected departure) in seconds to X
+                # Get date based on RID
+                date = str(result[journey][0])
+                # Convert date to day of the week
+                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
+                # Add which day of week AND (actual departure - expected departure) in seconds to X
                 try:
-                    X.append((datetime.datetime.strptime(result[journey][3], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds() - 
-                            (datetime.datetime.strptime(result[journey][2], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds())
+                    J.append(day_of_week)
+                    J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
+                            (datetime.strptime(result[journey][2], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    X.append(J)
                 except:
                     print("Unable to convert DEPARTURE to seconds")
                 # Add (actual arrival - expected arrival) in seconds to Y
                 try:
-                    Y.append((datetime.datetime.strptime(result[journey][6], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds() - 
-                            (datetime.datetime.strptime(result[journey][5], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds())
+                    K.append(day_of_week)
+                    K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
+                            (datetime.strptime(result[journey][5], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    Y.append(K)
                 except:
                     print("Unable to convert ARRIVAL to seconds")
                 
 
-        prediction_s = self.predict(X, Y)
+        prediction_s = self.predict_knn(X, Y)
         converted_time = self.convert_time(prediction_s)
 
         return converted_time
@@ -199,27 +265,38 @@ class Predictions:
 
         X = []
         Y = []
+        
         departure_data = [] # Departure time for all cases of departure_station
         arrival_data = [] # Arrival time for all cases of arrival_station
 
         for journey in range(len(result)):
+            J = []
+            K = []
             # public_departure              actual_departure              public_arrival               actual_arrival
             if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
-                # Add actual departurein seconds to X
+                # Get date based on RID
+                date = str(result[journey][0])
+                # Convert date to day of the week
+                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
+                # Add day of week AND actual departurein seconds to X
                 try:
-                    X.append((datetime.datetime.strptime(result[journey][3], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds())
+                    J.append(day_of_week)
+                    J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    X.append(J)
                 except:
                     print("Unable to convert DEPARTURE to seconds")
                 # Add actual arrival in seconds to Y
                 try:
-                    Y.append((datetime.datetime.strptime(result[journey][6], '%H:%M') - datetime.datetime(1900,1,1)).total_seconds())
+                    K.append(day_of_week)
+                    K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    Y.append(K)
                 except:
                     print("Unable to convert ARRIVAL to seconds")
 
-        arrival = self.predict(X, Y)
+        arrival = self.predict_knn(X, Y)
         delay_time = self.predict_delay()
         arrival_time = self.convert_time(arrival)
-        
+
         if (delay_time[0] == 0) and (delay_time[1] == 0):
             print("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival_time[0]) 
                 + ":" + str(arrival_time[1]))
@@ -227,21 +304,200 @@ class Predictions:
             print("Your journey is expected to be delayed by " + str(delay_time[1]) + " minutes and " + str(delay_time[2]) + 
                 " seconds. You will arrive at " + TO +  " at " + str(arrival_time[0]) + ":" + str(arrival_time[1]))
 
+    
+
+
+class TestPredictions(Predictions):
+
+    def __init__(self):
+        print("Inside test consturctor")
+        super().__init__()
+
+
+    def test_arrival(self, FROM, TO, Tdepart, size_x):
+        self.departure_station = super().station_finder(FROM)
+        self.arrival_station = super().station_finder(TO)
+        self.time_departure = Tdepart
+
+        result = super().harvest_data()
+
+        X = []
+        Y = []
+        
+        departure_data = [] 
+        arrival_data = [] 
+
+        for journey in range(len(result)):
+            J = []
+            K = []
+            if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
+                date = str(result[journey][0])
+                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
+                if size_x == 1:
+                    try:
+                        X.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    except:
+                        print("Unable to convert DEPARTURE to seconds")
+                    try:
+                        Y.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    except:
+                        print("Unable to convert ARRIVAL to seconds")
+                elif size_x == 2:
+                    try:
+                        J.append(day_of_week)
+                        J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                        X.append(J)
+                    except:
+                        print("Unable to convert DEPARTURE to seconds")
+                    try:
+                        K.append(day_of_week)
+                        K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                        Y.append(K)
+                    except:
+                        print("Unable to convert ARRIVAL to seconds")
+
+
+        knn_arrival = self.test_knn(X, Y)
+        arrival_time = super().convert_time(knn_arrival)
+
+        svm_arr = self.test_svm(X,Y)
+        svm_arr_time = super().convert_time([svm_arr])
+
+        print("------Arrival-------")
+        print("KNN: "+str(arrival_time[0]).zfill(2) + ":" + str(arrival_time[1]).zfill(2) + ":" + str(arrival_time[2]).zfill(2))
+        print("SVM: "+str(svm_arr_time[0]).zfill(2) + ":" + str(svm_arr_time[1]).zfill(2)+ ":" + str(svm_arr_time[2]).zfill(2))
+    
+
+    def test_delay(self, FROM, TO, Tdepart, size_x):
+
+        self.departure_station = super().station_finder(FROM)
+        self.arrival_station = super().station_finder(TO)
+        self.time_departure = Tdepart
+        
+        result = super().harvest_data()
+        X = []
+        Y = []
+
+        for journey in range(len(result)):
+            J = []
+            K = []
+            if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
+                date = str(result[journey][0])
+                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
+                if size_x == 1:
+                    try:
+                        X.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
+                                (datetime.strptime(result[journey][2], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    except:
+                        print("Unable to convert DEPARTURE to seconds")
+                    try:
+                        Y.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
+                                (datetime.strptime(result[journey][5], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    except:
+                        print("Unable to convert ARRIVAL to seconds")
+                elif size_x == 2:
+                    try:
+                        J.append(day_of_week)
+                        J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
+                                (datetime.strptime(result[journey][2], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                        X.append(J)
+                    except:
+                        print("Unable to convert DEPARTURE to seconds")
+                    try:
+                        K.append(day_of_week)
+                        K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
+                                (datetime.strptime(result[journey][5], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                        Y.append(K)
+                    except:
+                        print("Unable to convert ARRIVAL to seconds")
+                
+
+        knn_delay = self.test_knn(X, Y)
+        knn_delay_time = super().convert_time(knn_delay)
+
+        svm_delay = self.test_svm(X,Y)
+        svm_delay_time = super().convert_time([svm_delay])
+
+        print("-------Delay-------")
+        print("KNN: "+str(knn_delay_time[0]).zfill(2) + ":" + str(knn_delay_time[1]).zfill(2) + ":" + str(knn_delay_time[2]).zfill(2))
+        print("SVM: "+str(svm_delay_time[0]).zfill(2) + ":" + str(svm_delay_time[1]).zfill(2)+ ":" + str(svm_delay_time[2]).zfill(2))
+
+    
+    def test_svm(self, x_data, y_data):
+        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
+        t_d = []
+        t_d.append(self.day_of_week)
+        t_d.append(t_depart_s)
+        # turn the variables into numpy arrays so they can be reshaped for training the model.
+        X = np.array(x_data)
+        Y = np.array(y_data)
+        t_d = np.array(t_depart_s)
+        
+
+        # Splitting data into 80-20 train/test
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
+
+        # Reshape the data into 2D arrays so it can be used to train
+        X_train = X_train.reshape(-1, 1)
+        y_train = y_train.reshape(-1, 1)
+        X_test = X_test.reshape(-1, 1)
+        y_test = y_test.reshape(-1, 1)
+        t_d = t_d.reshape(-1, 1)
+
+        # Specifying type of classification and training
+        clf = svm.SVC()
+        clf.fit(X_train, y_train.ravel())
+
+        prediction_s = clf.predict(t_d)
+
+        return prediction_s
+
+
+    def test_knn(self, x_data, y_data):
+        
+        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
+        t_d = []
+        t_d.append(self.day_of_week)
+        t_d.append(t_depart_s)
+
+        # turn the variables into numpy arrays so they can be reshaped for training the model.
+        X = np.array(x_data)
+        Y = np.array(y_data)
+        t_d = np.array(t_depart_s)
+
+        # Splitting data into 80-20 train/test
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
+
+        # Reshape the data into 2D arrays so it can be used to train
+        X_train = X_train.reshape(-1, 1)
+        y_train = y_train.reshape(-1, 1)
+        X_test = X_test.reshape(-1, 1)
+        y_test = y_test.reshape(-1, 1)
+        t_d = t_d.reshape(-1, 1)
+
+        # Specifying type of classification and training
+        clf = neighbors.KNeighborsRegressor()
+        clf.fit(X_train, y_train)
+
+        prediction_s = clf.predict(t_d)
+
+        return prediction_s
 
 pr = Predictions()
+# pr.station_finder("DS")
 # pr.station_finder("Norwich")
 # pr.predict_arrival("Norwich", "Colchester", "14:45")
-pr.station_finder("DS")
 
+test = TestPredictions()
+depart = "14:45"
+print("Arrival x == 1:")
+print("Departing at:", depart)
+test.test_arrival("Norwich", "Colchester", depart, 1)
+print("Arrival x == 2:")
+test.test_arrival("Norwich", "Colchester", depart, 2)
+print("*********************************************")
+print("Delay x == 1:")
+test.test_delay("Norwich", "Colchester", depart, 1)
+print("Delay x == 2:")
+test.test_delay("Norwich", "Colchester", depart, 2)
 
-
-# I'm late from Norwich. -> Where to? -> DISS 
-
-# Actual_dep - planned_departure. Store in X.
-
-# SVN training? Try few modals and see which one performs how. Write about your findings
-
-
-# TO DO:
-# 1)Get similar cities based on name
-# 2)Use more data (look library for checking day of year based on date.)
