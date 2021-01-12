@@ -5,8 +5,11 @@ sys.path.append(parentdir)
 
 import numpy as np
 from sklearn import preprocessing, neighbors, svm
+from sklearn import metrics
+from sklearn.metrics import mean_squared_error, f1_score
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPRegressor
 import pandas as pd
 import csv
 from datetime import datetime, timedelta
@@ -59,7 +62,7 @@ class Predictions:
         else:
             for s in (self.stations):
                 ratio = SequenceMatcher(None, x, s).ratio() * 100
-                if ratio >= 60: # Need to check what value is acceptable. For "DS" a response "DISS" is found with value 66.666
+                if ratio >= 60: # Need to check what value is acceptable. For "DS" a response "DISS" is found with value 66.666 
                     similar = s
                     print(ratio)
                     print("The city you've provided has not been found. Closest match to " + station + "  is: " + s.upper())
@@ -304,200 +307,28 @@ class Predictions:
             print("Your journey is expected to be delayed by " + str(delay_time[1]) + " minutes and " + str(delay_time[2]) + 
                 " seconds. You will arrive at " + TO +  " at " + str(arrival_time[0]) + ":" + str(arrival_time[1]))
 
-    
-
-
-class TestPredictions(Predictions):
-
-    def __init__(self):
-        print("Inside test consturctor")
-        super().__init__()
-
-
-    def test_arrival(self, FROM, TO, Tdepart, size_x):
-        self.departure_station = super().station_finder(FROM)
-        self.arrival_station = super().station_finder(TO)
-        self.time_departure = Tdepart
-
-        result = super().harvest_data()
-
-        X = []
-        Y = []
-        
-        departure_data = [] 
-        arrival_data = [] 
-
-        for journey in range(len(result)):
-            J = []
-            K = []
-            if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
-                date = str(result[journey][0])
-                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
-                if size_x == 1:
-                    try:
-                        X.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                    except:
-                        print("Unable to convert DEPARTURE to seconds")
-                    try:
-                        Y.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                    except:
-                        print("Unable to convert ARRIVAL to seconds")
-                elif size_x == 2:
-                    try:
-                        J.append(day_of_week)
-                        J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                        X.append(J)
-                    except:
-                        print("Unable to convert DEPARTURE to seconds")
-                    try:
-                        K.append(day_of_week)
-                        K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                        Y.append(K)
-                    except:
-                        print("Unable to convert ARRIVAL to seconds")
-
-
-        knn_arrival = self.test_knn(X, Y)
-        arrival_time = super().convert_time(knn_arrival)
-
-        svm_arr = self.test_svm(X,Y)
-        svm_arr_time = super().convert_time([svm_arr])
-
-        print("------Arrival-------")
-        print("KNN: "+str(arrival_time[0]).zfill(2) + ":" + str(arrival_time[1]).zfill(2) + ":" + str(arrival_time[2]).zfill(2))
-        print("SVM: "+str(svm_arr_time[0]).zfill(2) + ":" + str(svm_arr_time[1]).zfill(2)+ ":" + str(svm_arr_time[2]).zfill(2))
-    
-
-    def test_delay(self, FROM, TO, Tdepart, size_x):
-
-        self.departure_station = super().station_finder(FROM)
-        self.arrival_station = super().station_finder(TO)
-        self.time_departure = Tdepart
-        
-        result = super().harvest_data()
-        X = []
-        Y = []
-
-        for journey in range(len(result)):
-            J = []
-            K = []
-            if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
-                date = str(result[journey][0])
-                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
-                if size_x == 1:
-                    try:
-                        X.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
-                                (datetime.strptime(result[journey][2], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                    except:
-                        print("Unable to convert DEPARTURE to seconds")
-                    try:
-                        Y.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
-                                (datetime.strptime(result[journey][5], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                    except:
-                        print("Unable to convert ARRIVAL to seconds")
-                elif size_x == 2:
-                    try:
-                        J.append(day_of_week)
-                        J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
-                                (datetime.strptime(result[journey][2], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                        X.append(J)
-                    except:
-                        print("Unable to convert DEPARTURE to seconds")
-                    try:
-                        K.append(day_of_week)
-                        K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
-                                (datetime.strptime(result[journey][5], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                        Y.append(K)
-                    except:
-                        print("Unable to convert ARRIVAL to seconds")
-                
-
-        knn_delay = self.test_knn(X, Y)
-        knn_delay_time = super().convert_time(knn_delay)
-
-        svm_delay = self.test_svm(X,Y)
-        svm_delay_time = super().convert_time([svm_delay])
-
-        print("-------Delay-------")
-        print("KNN: "+str(knn_delay_time[0]).zfill(2) + ":" + str(knn_delay_time[1]).zfill(2) + ":" + str(knn_delay_time[2]).zfill(2))
-        print("SVM: "+str(svm_delay_time[0]).zfill(2) + ":" + str(svm_delay_time[1]).zfill(2)+ ":" + str(svm_delay_time[2]).zfill(2))
-
-    
-    def test_svm(self, x_data, y_data):
-        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
-        t_d = []
-        t_d.append(self.day_of_week)
-        t_d.append(t_depart_s)
-        # turn the variables into numpy arrays so they can be reshaped for training the model.
-        X = np.array(x_data)
-        Y = np.array(y_data)
-        t_d = np.array(t_depart_s)
-        
-
-        # Splitting data into 80-20 train/test
-        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
-
-        # Reshape the data into 2D arrays so it can be used to train
-        X_train = X_train.reshape(-1, 1)
-        y_train = y_train.reshape(-1, 1)
-        X_test = X_test.reshape(-1, 1)
-        y_test = y_test.reshape(-1, 1)
-        t_d = t_d.reshape(-1, 1)
-
-        # Specifying type of classification and training
-        clf = svm.SVC()
-        clf.fit(X_train, y_train.ravel())
-
-        prediction_s = clf.predict(t_d)
-
-        return prediction_s
-
-
-    def test_knn(self, x_data, y_data):
-        
-        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
-        t_d = []
-        t_d.append(self.day_of_week)
-        t_d.append(t_depart_s)
-
-        # turn the variables into numpy arrays so they can be reshaped for training the model.
-        X = np.array(x_data)
-        Y = np.array(y_data)
-        t_d = np.array(t_depart_s)
-
-        # Splitting data into 80-20 train/test
-        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
-
-        # Reshape the data into 2D arrays so it can be used to train
-        X_train = X_train.reshape(-1, 1)
-        y_train = y_train.reshape(-1, 1)
-        X_test = X_test.reshape(-1, 1)
-        y_test = y_test.reshape(-1, 1)
-        t_d = t_d.reshape(-1, 1)
-
-        # Specifying type of classification and training
-        clf = neighbors.KNeighborsRegressor()
-        clf.fit(X_train, y_train)
-
-        prediction_s = clf.predict(t_d)
-
-        return prediction_s
-
 pr = Predictions()
 # pr.station_finder("DS")
 # pr.station_finder("Norwich")
-# pr.predict_arrival("Norwich", "Colchester", "14:45")
+pr.predict_arrival("Norwich", "Colchester", "14:45")
 
-test = TestPredictions()
-depart = "14:45"
-print("Arrival x == 1:")
-print("Departing at:", depart)
-test.test_arrival("Norwich", "Colchester", depart, 1)
-print("Arrival x == 2:")
-test.test_arrival("Norwich", "Colchester", depart, 2)
-print("*********************************************")
-print("Delay x == 1:")
-test.test_delay("Norwich", "Colchester", depart, 1)
-print("Delay x == 2:")
-test.test_delay("Norwich", "Colchester", depart, 2)
 
+
+# KNN gets similar outputs, so far seems to be the closest to reality.
+# SVM gets round up values for both delay and arrival prediction. Kernel = linear seems to produce the closest to actual results
+# 
+
+# Multi-Layer Processor (MLP) - 
+#   3 hidden layers - 32/16/8 neurons. Activation function "identity" - produces consistent results
+#   however size of inputs doesn't affect output as much. The default "Relu" is the choice - producing consistent outputs which 
+#   are affected by the size of the input. 
+#   Unable to use MLP for delay prediction. The output is more like time, rather than actual delay (minutes/seconds).
+# 
+#   Solver -  tested between "lbfgs" and "adam". Documentation suggests to use "adam" for large data sets.
+#       Both "lbfgs" and "adam" have produced similar results, however same as type of activation function, 
+#       "lbfgs" output doesn't get much affected by the size of the input, producing similar results for both x (size of input) == 1 or more
+#       "adam" output differ by a few minutes (for size of input 1 or more), however multiple runs prove that larger input size produces
+#           more consistent results with little difference between each other
+# 
+# 
+#   
