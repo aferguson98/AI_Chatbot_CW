@@ -16,22 +16,55 @@
 				<div id="chat"></div>
 			</div>
 			<div class="side-bar">
-				<div class="container">
-					<h1 class="heading">Your Booking</h1>
-					<br/>
-					<div class="ticket">
-						<div class="ticket-header">XXXXXX</div>
-						<div class="ticket-container">
-							<div class="info from">XXXXXX</div>
-							<div class="info out">XX XXX XX @ XX:XX</div>
-							<div class="info to">XXXXXX</div>
-							<div class="info in">XX XXX XX @ XX:XX</div>
-							<div class="info adults">XXX</div>
-							<div class="info child">XXX</div>
+				<div class="container" id="booking">
+					<h1 class="heading">
+						<img src="../static/images/book_ico_yel.png" alt="Booking Icon"/>booking
+					</h1>
+					<span class="content active">
+						<br/>
+						<div class="ticket">
+							<div class="ticket-header">XXXXXX</div>
+							<div class="ticket-container">
+								<div class="info from">XXXXXX</div>
+								<div class="info out">XX XXX XX @ XX:XX</div>
+								<div class="info to">XXXXXX</div>
+								<div class="info in">XX XXX XX @ XX:XX</div>
+								<div class="info adults">XXX</div>
+								<div class="info child">XXX</div>
+							</div>
+							<div class="ticket-icon"></div>
+							<div class="ticket-footer">Updated <span id="search-time">XX:XX</span></div>
 						</div>
-						<div class="ticket-icon"></div>
-						<div class="ticket-footer">Updated <span id="search-time">XX:XX</span></div>
-					</div>
+					</span>
+					<span class="content inactive">
+						<p>AKO can book train tickets too! Just ask to book a ticket and AKO will find the cheapest
+							fare.</p>
+					</span>
+				</div>
+				<div class="container" id="predict">
+					<h1 class="heading">
+						<img src="../static/images/predict_ico_blu.png" alt="Predict Icon"/>predict
+					</h1>
+					<span class="content active">
+						<p>AKO can book train tickets too! Just ask to book a ticket and AKO will find the cheapest
+							fare.</p>
+					</span>
+					<span class="content inactive">
+						<p>Once you've completed your booking, ask &lsquo;how long will I be delayed?&rsquo; to see delay predictions
+							based on National Rail data. (For stations between Norwich and London Liverpool Street only)</p>
+					</span>
+				</div>
+				<div class="container" id="support">
+					<h1 class="heading">
+						<img src="../static/images/support_ico.png" alt="Support Icon"/>support
+					</h1>
+					<span class="content active">
+						<p>AKO can book train tickets too! Just ask to book a ticket and AKO will find the cheapest
+							fare.</p>
+					</span>
+					<span class="content inactive">
+						<p>AKO can help with some customer service tasks, ask for help to find out more.</p>
+					</span>
 				</div>
 			</div>
 		</main>

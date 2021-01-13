@@ -12,7 +12,7 @@ def scrape(journey_data):
     # Norwich - London, 5 Dec 2020, 12:45, return 6 Dec 2020, 13:45
     # Should replace later on with user data from journeyData
     url = "https://ojp.nationalrail.co.uk/service/timesandfares/NRW/LST" \
-          "/051220/1245/dep/061220/1345/dep"
+          "/050221/1245/dep/060221/1345/dep"
 
     # Open the webpage
     webpage = urlopen(url)
@@ -22,9 +22,11 @@ def scrape(journey_data):
 
     # Breakdown HTML into elements
     page_scrape = soup(html, "html.parser")
+    print(page_scrape)
 
     # Get element with "has-cheapest" in the class
     cheap_elements = page_scrape.find("td", {"class": "fare has-cheapest"})
+    print(cheap_elements)
 
     # Get content of the script tag
     cheap_script = cheap_elements.find('script').contents
@@ -44,7 +46,7 @@ def scrape(journey_data):
     # info. JS will build the ticket to be displayed into the HTML.
 
 
-scrape("hello")
+# scrape("hello")
 
 # python dict with keys:values of what the bot knows based on user input
 # populate these when the user gives them. They start empty ask different
