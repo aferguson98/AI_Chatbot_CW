@@ -1,3 +1,15 @@
+let tag_message = "";
+
+let tag_req_map = {
+    "DEP": "{FROM}",
+    "ARR": "{TO}",
+    "DDT": "{TAG:DAT}",
+    "RET": "{TAG:RET}",
+    "RTD": "{TAG:RAT}",
+    "ADT": "{TAG:ADT}",
+    "CHD": "{TAG:CHD}"
+}
+
 // When doc.ready
 $(function () {
 
@@ -7,8 +19,9 @@ $(function () {
     $('#message_form').submit(function (e) {
         console.log("Making a AJAX call");
         e.preventDefault();
-        sendInputData(getMessageText());
-        sendMessage(getMessageText());
+        let message = getMessageText();
+        sendInputData(tag_message + " " + message);
+        sendMessage(message);
     });
 
 });
@@ -18,7 +31,7 @@ function getMessageText() {
     return $('#user_input').val();
 }
 
-// write user mesasge 
+// write user message
 function sendMessage(text) {
     if($('.suggestions-container').length){
         $('.suggestions-container').fadeOut(500);
@@ -39,6 +52,7 @@ function sendMessage(text) {
 
 // AJAX call to back-end
 function sendInputData(user_message, isFirst=false, isSystem="false") {
+    tag_message = "";
     if (user_message.trim() === '' && !isFirst) {
         return;
     }
@@ -59,10 +73,16 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
             messageObject.response_req = output.response_req;
             messageObject.write(output);
             changeUIFromTags(output.message, new Date().toTimeString().slice(0, 5));
+            getControlTags(output.message);
             //synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
             if(messageObject.text.includes("Ok great, let's get your booking started!")){
                 $('main').css('width', 'calc(100% - 400px)');
                 $('.side-bar').css("transform", "scaleX(1)");
+                $('.content.active').slideUp(500);
+                $('.content.inactive').slideUp(500);
+                $('#booking .active').delay(500).slideDown(500);
+                $('#predict .inactive').delay(500).slideDown(500);
+                $('#support .inactive').delay(500).slideDown(500);
             }
             if(messageObject.text.includes("{REQ:DEP}")){
                 navigator.geolocation.getCurrentPosition(getNearestStations);
@@ -172,10 +192,10 @@ function changeUIFromTags(messageText, updatedTime){
                 updateTicketField('to', value, updatedTime)
                 break;
             case 'DTM':
-                updateTicketField('out', value, updatedTime)
+                updateTicketField('out', value.replace("_", ":"), updatedTime)
                 break;
             case 'RTM':
-                updateTicketField('in', value, updatedTime)
+                updateTicketField('in', value.replace("_", ":"), updatedTime)
                 break;
             case 'RET':
                 updateTicketField('ticket-header', value, updatedTime)
@@ -189,6 +209,23 @@ function changeUIFromTags(messageText, updatedTime){
             default:
                 break;
        }
+    });
+}
+
+function getControlTags(messageText){
+    let regex = new RegExp('{([^}]+)}', 'g');
+    let results = [...messageText.matchAll(regex)]
+    results.forEach(function(element){
+        let tagArr = element[1].split(":");
+        let tag = tagArr[0], value = tagArr[1];
+        switch (tag){
+            case 'REQ':
+                //The Reasoner has made a request of the user - the following message will need the matching tag code
+                tag_message += tag_req_map[value];
+                break;
+            default:
+                break;
+        }
     });
 }
 
@@ -207,8 +244,9 @@ function getNearestStations(latlng){
             success: function (output) {
                 output.member.forEach(function (elem) {
                     if (counter < 3) {
-                        suggestion_container += `<div class="suggestion" onclick="sendInputData('{TAG:DEP}${elem.name}');
-                                              sendMessage('${elem.name}');">${elem.name}</div>`
+                        suggestion_container += `<div class="suggestion" 
+                                                 onclick="sendInputData('{TAG:DEP}${elem.name}');
+                                                 sendMessage('${elem.name}');">${elem.name}</div>`
                         counter++;
                     }
                 });

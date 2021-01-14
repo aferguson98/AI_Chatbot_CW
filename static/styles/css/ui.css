@@ -321,12 +321,36 @@ main{
 	width: calc(100% - 20px);
 }
 
+.side-bar .container .content.active, .side-bar .container .content.inactive{
+	display: none;
+}
+
+.side-bar .container#booking{
+	background: #e6ce00;
+}
+
+.side-bar .container#predict{
+	background: #0f19a6;
+}
+
+.side-bar .container#predict *{
+	color: #FFFFFF !important;
+	border-color: #FFFFFF !important;
+}
+
 .side-bar .heading{
 	border-bottom: 1px solid #202020;
 	font-size: 1.5em;
-	font-weight: 200;
+	font-weight: 600;
+	line-height: 1.5em;
 	margin: 0 0 0 -10px;
 	padding: 0 10px;
-	text-transform: uppercase;
 	width: 100%;
+}
+
+.side-bar .heading img{
+	height: 24px;
+	margin-right: 3px;
+	margin-top: -5px;
+	vertical-align: middle;
 }

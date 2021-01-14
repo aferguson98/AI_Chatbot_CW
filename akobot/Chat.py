@@ -1,14 +1,24 @@
 """
 Chat.py
 """
-import time
-from datetime import datetime
 
 from experta import *
-from spacy.matcher import Matcher
 
-from akobot import StationNoMatchError, StationNotFoundError
 from akobot.Reasoner import ChatEngine
+
+
+def convert_tags_to_nlp_text(message):
+    left_curly_braces = message.count("{")
+    right_curly_braces = message.count("}")
+    if left_curly_braces + right_curly_braces > 2:
+        # this control sequence needs to be passed directly to nlp
+        return message
+    # need to replace tag with text to be useful for nlp
+    message = message.replace("{FROM}", "from")
+    message = message.replace("{TO}", "to")
+    message = message.replace("{TAG:DAT}", "departing at")
+    message = message.replace("{TAG:RAT}", "returning at")
+    return message
 
 
 class Chat:
@@ -24,12 +34,15 @@ class Chat:
         })
 
         if author != "bot":
+            message_text = convert_tags_to_nlp_text(message_text)
             self.chat_engine.reset()
             self.chat_engine.declare(Fact(message_text=message_text))
             self.chat_engine.run()
-            print(self.chat_engine.facts)
             message_dict = self.chat_engine.message.pop(0)
-            return [message_dict['message'],
+            tags = self.chat_engine.tags
+            self.chat_engine.tags = ""
+            print(self.chat_engine.facts)
+            return [tags + message_dict['message'],
                     message_dict['suggestions'],
                     message_dict['response_req']]
 
@@ -43,6 +56,8 @@ class Chat:
                 'suggestions': ["Reload Page"],
                 'response_req': True
             }
-        return [message_dict['message'],
+        tags = self.chat_engine.tags
+        self.chat_engine.tags = ""
+        return [tags + message_dict['message'],
                 message_dict['suggestions'],
                 message_dict['response_req']]
