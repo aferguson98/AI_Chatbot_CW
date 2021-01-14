@@ -10,6 +10,7 @@ from sklearn.metrics import mean_squared_error, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import OneHotEncoder
 import pandas as pd
 import csv
 from datetime import datetime, timedelta
@@ -38,6 +39,9 @@ class Predictions:
                 "stanford" : "STFD",
                 "liverpool st" : "LIVST"
             }
+        self.segment_of_day = [] #morning: 5 - 10, midday: 10-15, evening: 15 - 20, night: 20 - 5 
+        self.rush_hour = [] # (06 - 09 and 16:00-:18:00) = 1
+        self.weekday = self.is_weekday(self.day_of_week) # Monday - Friday = 1; Saturday and Sunday = 0
     
     def station_finder(self, station):
         """
@@ -108,9 +112,90 @@ class Predictions:
 
         return tt
 
-    def predict_knn(self, x_data, y_data):
+
+    def is_weekday(self, day):
         """
-            KNN prediction
+        Checks if the day of the week is weekday or weekend
+
+        Parameters
+        ---------
+            day - int
+                day of the week 0 = Monday, 6 = Sundau
+
+        Returns
+        -------
+            weekday = list
+                One hot encoding for weekday(1) or weekend(0)
+        """
+        weekday = []
+        if day <= 4:
+            weekday = [1]
+        elif 4 < day < 7:
+            weekday = [0]
+        return weekday
+
+
+    def check_day_segment(self, hour_of_day):
+        """
+            Checks if it's morning/midday/evening/night given hour of day
+
+        Parameters
+        -----------
+            hourOfDay - int
+
+        Returns
+        -------
+            segmentOfDay - list
+                One hot encoding for morning/midday/evening/night
+        """
+        segment_of_day = []
+        if 5 <= hour_of_day < 10:
+            segment_of_day = [1, 0, 0, 0]
+        elif 10 <= hour_of_day < 15:
+            segment_of_day = [0, 1, 0, 0]
+        elif 15 <= hour_of_day < 20:
+            segment_of_day = [0, 0, 1, 0]
+        elif (20 <= hour_of_day < 24) or (0 <= hour_of_day < 5):
+            segment_of_day = [0, 0, 0, 1]
+        return segment_of_day
+
+
+    def is_rush_hour(self, hour, minute):
+        """
+            Checks if it's rush hour or not based on the time given
+
+        Parameters
+        ----------
+            hour - int
+                hour of day 
+            minute - int
+                minute of day
+        Returns
+        -------
+            rushHour - list
+                One hot encoding if rush hour(1) or not(0)
+        """
+        rush_hour = []
+        # (hour == 9 and minute == 0)
+        if (5 <= hour <= 9 ) or (16 <= hour <= 18):
+            if (hour == 5 and 45 <= minute < 60) or (5 < hour < 9):
+                rush_hour = [1]
+            elif (hour == 5 and minute < 45) or (hour == 9 and 0 < minute):
+                rush_hour = [0]
+            elif 16 <= hour or (hour <= 18 and minute == 0):
+                rush_hour = [1]
+        elif (9 < hour < 16) or (hour == 9 and 0 < minute < 60) or (18 < hour < 24) or (0 < hour < 5):
+            rush_hour = [0]
+
+        
+        
+
+        return rush_hour
+
+
+    def knn(self, x_data, y_data):
+        """
+            K nearest neighbours prediction
 
             Parameters
             ----------
@@ -121,18 +206,21 @@ class Predictions:
 
             Returns
             -------
-            Predicted value based on the input - time user will be delayed OR estimated arrival time to X station
+            Predicted value based on the input - estimated time user will be delayed
         """
         
-        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
-        t_d = []
-        t_d.append(self.day_of_week)
-        t_d.append(t_depart_s)
+        time_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
+        prediction_input = []
+        prediction_input.append(self.day_of_week)
+        prediction_input.extend(self.weekday)
+        prediction_input.append(time_depart_s)
+        prediction_input.extend(self.segment_of_day)
+        prediction_input.extend(self.rush_hour)
 
         # turn the variables into numpy arrays so they can be reshaped for training the model.
         X = np.array(x_data)
         Y = np.array(y_data)
-        t_d = np.array(t_depart_s)
+        prediction_input = np.array(time_depart_s)
 
         # Splitting data into 80-20 train/test
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
@@ -142,27 +230,20 @@ class Predictions:
         y_train = y_train.reshape(-1, 1)
         X_test = X_test.reshape(-1, 1)
         y_test = y_test.reshape(-1, 1)
-        t_d = t_d.reshape(-1, 1)
+        prediction_input = prediction_input.reshape(-1, 1)
 
         # Specifying type of classification and training
         clf = neighbors.KNeighborsRegressor()
         clf.fit(X_train, y_train)
 
-
-        accuracy = clf.score(X_test, y_test)
-        print("KNN accuracy:" , accuracy * 100)
-        mse = mean_squared_error(X_test, y_test)
-        print("KNN MSE: ", mse)
-        print("--------------------------------------")
-
-        prediction_s = clf.predict(t_d)
+        prediction_s = clf.predict(prediction_input)
 
         return prediction_s
 
 
-    def predict_svm(self, x_data, y_data):
+    def mlp(self, x_data, y_data):
         """
-            Support Vector Machines prediction
+            Multi-layer perception neural network prediction
 
             Parameters
             ----------
@@ -173,18 +254,21 @@ class Predictions:
 
             Returns
             -------
-            Predicted value based on the input - time user will be delayed OR estimated arrival time to X station
+            Predicted value based on the input - estimated arrival time at station X
         """
         
-        t_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
-        t_d = []
-        t_d.append(self.day_of_week)
-        t_d.append(t_depart_s)
+        time_depart_s = (datetime.strptime(self.time_departure, '%H:%M') - datetime(1900,1,1)).total_seconds()
+        prediction_input = []
+        prediction_input.append(self.day_of_week)
+        prediction_input.extend(self.weekday)
+        prediction_input.append(time_depart_s)
+        prediction_input.extend(self.segment_of_day)
+        prediction_input.extend(self.rush_hour)
 
         # turn the variables into numpy arrays so they can be reshaped for training the model.
         X = np.array(x_data)
         Y = np.array(y_data)
-        t_d = np.array(t_depart_s)
+        prediction_input = np.array(time_depart_s)
 
         # Splitting data into 80-20 train/test
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2)
@@ -194,29 +278,80 @@ class Predictions:
         y_train = y_train.reshape(-1, 1)
         X_test = X_test.reshape(-1, 1)
         y_test = y_test.reshape(-1, 1)
-        t_d = t_d.reshape(-1, 1)
+        prediction_input = prediction_input.reshape(-1, 1)
 
         # Specifying type of classification and training
-        clf = svm.SVC()
+        clf = MLPRegressor(hidden_layer_sizes = (32,16,8), activation="relu", solver="adam", random_state=1, max_iter = 2000)
         clf.fit(X_train, y_train.ravel())
 
-
-        accuracy = clf.score(X_test, y_test)
-        print("SVM accuracy:" , accuracy * 100)
-        mse = mean_squared_error(X_test, y_test)
-        print("Mean squared error is: ", mse)
-        print("--------------------------------------")
-
-        prediction_s = clf.predict(t_d)
-        p_s = self.convert_time(prediction_s)
-        print("arrival_time: ",p_s)
+        prediction_s = clf.predict(prediction_input)
 
         return prediction_s
 
 
+    def predict_arrival(self):
+        """
+            Predicting when the train will arrive at the TO station
+        """
+
+        X = []
+        Y = []
+        result = self.harvest_data()
+        
+        for journey in range(len(result)):
+            J = []
+            K = []
+            
+            # public_departure              actual_departure              public_arrival               actual_arrival
+            if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
+                # Get date based on RID
+                date = str(result[journey][0])
+                # Convert date to day of the week
+                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
+                hour_of_day = int(result[journey][3].split(":")[0])
+                minute_of_day = int(result[journey][3].split(":")[1])
+
+                # Get day of week based on RID - Monday = 0, Sunday = 6
+                weekday = self.is_weekday(day_of_week)
+                
+                # Checking morning/midday/evening/night
+                day_segment = self.check_day_segment(hour_of_day)
+
+                # Checking rush hour or not
+                rush_hour = self.is_rush_hour(hour_of_day, minute_of_day)
+
+                # Add day of week, weekday/end, actual departurein seconds, morning/evening, rush/norush hour to X
+                try:
+                    J.append(day_of_week)
+                    J.extend(weekday)
+                    J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    J.extend(day_segment)
+                    J.extend(rush_hour)
+
+                    X.append(J)
+                except:
+                    print("Unable to convert DEPARTURE to seconds")
+                # Add day of week, weekday/end, aactual arrival in seconds, morning/evening, rush/norush hour to Y
+                try:
+                    K.append(day_of_week)
+                    K.extend(weekday)
+                    K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    K.extend(day_segment)
+                    K.extend(rush_hour)
+
+                    Y.append(K)
+                except:
+                    print("Unable to convert ARRIVAL to seconds")
+
+        arrival = self.mlp(X, Y)
+        arrival_time = self.convert_time([arrival])
+
+        return arrival_time
+
+
     def predict_delay(self):
         """
-        Predicting how long the train will be delayed
+            Predicting how long the train will be delayed
         """
         X = []
         Y = []
@@ -231,92 +366,91 @@ class Predictions:
                 date = str(result[journey][0])
                 # Convert date to day of the week
                 day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
-                # Add which day of week AND (actual departure - expected departure) in seconds to X
+                hour_of_day = int(result[journey][3].split(":")[0])
+                minute_of_day = int(result[journey][3].split(":")[1])
+
+                # Get day of week based on RID - Monday = 0, Sunday = 6
+                weekday = self.is_weekday(day_of_week)
+                
+                # Checking morning/midday/evening/night
+                day_segment = self.check_day_segment(hour_of_day)
+
+                # Checking rush hour or not
+                rush_hour = self.is_rush_hour(hour_of_day, minute_of_day)
+
                 try:
                     J.append(day_of_week)
+                    J.extend(weekday)
                     J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
                             (datetime.strptime(result[journey][2], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    J.extend(day_segment)
+                    J.extend(rush_hour)
+                    
                     X.append(J)
                 except:
                     print("Unable to convert DEPARTURE to seconds")
                 # Add (actual arrival - expected arrival) in seconds to Y
                 try:
                     K.append(day_of_week)
+                    K.extend(weekday)
                     K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds() - 
                             (datetime.strptime(result[journey][5], '%H:%M') - datetime(1900,1,1)).total_seconds())
+                    K.extend(day_segment)
+                    K.extend(rush_hour)
+                    
                     Y.append(K)
                 except:
                     print("Unable to convert ARRIVAL to seconds")
                 
+        prediction_s = self.knn(X, Y)
+        delayed_time = self.convert_time(prediction_s)
 
-        prediction_s = self.predict_knn(X, Y)
-        converted_time = self.convert_time(prediction_s)
+        return delayed_time
 
-        return converted_time
-
-
-    def predict_arrival(self, FROM, TO, Tdepart):
+       
+    def display_results(self, FROM, TO, Tdepart):
         """
-        Predicting when the train will arrive at the TO station
+        Collect predictions and return then to front-end
+
 
         """
+
         self.departure_station = self.station_finder(FROM)
         self.arrival_station = self.station_finder(TO)
         self.time_departure = Tdepart
+        hour_of_day = int(Tdepart.split(":")[0])
+        minute_of_day = int(Tdepart.split(":")[1])
 
-        result = self.harvest_data()
+        self.segment_of_day = self.check_day_segment(hour_of_day)
 
-        X = []
-        Y = []
+        # Check if rush hour or not
+        self.rush_hour = self.is_rush_hour(hour_of_day, minute_of_day)
+
+        arrival = self.predict_arrival()
+        delay = self.predict_delay()
+
+        if (delay[0] == 0) and (delay[1] == 0):
+            print("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival[0]) 
+                + ":" + str(arrival[1]))
+            # return ("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival[0]) 
+            #     + ":" + str(arrival[1]))
+        elif delay[0] == 0:
+            print("Your journey is expected to be delayed by " + str(delay[1]) + " minutes and " + str(delay[2]) + 
+                " seconds. You will arrive at " + TO +  " at " + str(arrival[0]) + ":" + str(arrival[1]))
+            # return ("Your journey is expected to be delayed by " + str(delay[1]) + " minutes and " + str(delay[2]) + 
+            #     " seconds. You will arrive at " + TO +  " at " + str(arrival[0]) + ":" + str(arrival[1]))
+
         
-        departure_data = [] # Departure time for all cases of departure_station
-        arrival_data = [] # Arrival time for all cases of arrival_station
 
-        for journey in range(len(result)):
-            J = []
-            K = []
-            # public_departure              actual_departure              public_arrival               actual_arrival
-            if result[journey][2] != '' and result[journey][3] != '' and result[journey][5] != '' and result[journey][6] != '':
-                # Get date based on RID
-                date = str(result[journey][0])
-                # Convert date to day of the week
-                day_of_week = datetime(int(date[:4]), int(date[4:6]), int(date[6:8])).weekday()
-                # Add day of week AND actual departurein seconds to X
-                try:
-                    J.append(day_of_week)
-                    J.append((datetime.strptime(result[journey][3], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                    X.append(J)
-                except:
-                    print("Unable to convert DEPARTURE to seconds")
-                # Add actual arrival in seconds to Y
-                try:
-                    K.append(day_of_week)
-                    K.append((datetime.strptime(result[journey][6], '%H:%M') - datetime(1900,1,1)).total_seconds())
-                    Y.append(K)
-                except:
-                    print("Unable to convert ARRIVAL to seconds")
-
-        arrival = self.predict_knn(X, Y)
-        delay_time = self.predict_delay()
-        arrival_time = self.convert_time(arrival)
-
-        if (delay_time[0] == 0) and (delay_time[1] == 0):
-            print("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival_time[0]) 
-                + ":" + str(arrival_time[1]))
-        elif delay_time[0] == 0:
-            print("Your journey is expected to be delayed by " + str(delay_time[1]) + " minutes and " + str(delay_time[2]) + 
-                " seconds. You will arrive at " + TO +  " at " + str(arrival_time[0]) + ":" + str(arrival_time[1]))
 
 pr = Predictions()
 # pr.station_finder("DS")
 # pr.station_finder("Norwich")
-pr.predict_arrival("Norwich", "Colchester", "14:45")
+pr.display_results("Norwich", "Colchester", "17:30")
 
 
 
 # KNN gets similar outputs, so far seems to be the closest to reality.
-# SVM gets round up values for both delay and arrival prediction. Kernel = linear seems to produce the closest to actual results
-# 
 
 # Multi-Layer Processor (MLP) - 
 #   3 hidden layers - 32/16/8 neurons. Activation function "identity" - produces consistent results
@@ -329,6 +463,3 @@ pr.predict_arrival("Norwich", "Colchester", "14:45")
 #       "lbfgs" output doesn't get much affected by the size of the input, producing similar results for both x (size of input) == 1 or more
 #       "adam" output differ by a few minutes (for size of input 1 or more), however multiple runs prove that larger input size produces
 #           more consistent results with little difference between each other
-# 
-# 
-#   
