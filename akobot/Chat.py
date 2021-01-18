@@ -18,6 +18,21 @@ def convert_tags_to_nlp_text(message):
     message = message.replace("{TO}", "to")
     message = message.replace("{TAG:DAT}", "departing at")
     message = message.replace("{TAG:RAT}", "returning at")
+
+    # replace times to be useful to SpaCy
+    if (message.find("am") > 0 and
+            not message[message.find("am") - 1].isspace()):
+        message = message.replace("am", " am")
+    if (message.find("AM") > 0 and
+            not message[message.find("AM") - 1].isspace()):
+        message = message.replace("AM", " am")
+    if (message.find("pm") > 0 and
+            not message[message.find("pm") - 1].isspace()):
+        message = message.replace("pm", " pm")
+    if (message.find("PM") > 0 and
+            not message[message.find("PM") - 1].isspace()):
+        message = message.replace("PM", " pm")
+
     return message
 
 
@@ -34,7 +49,7 @@ class Chat:
         })
 
         if author != "bot":
-            message_text = convert_tags_to_nlp_text(message_text)
+            message_text = convert_tags_to_nlp_text(message_text.strip())
             self.chat_engine.reset()
             self.chat_engine.declare(Fact(message_text=message_text))
             self.chat_engine.run()

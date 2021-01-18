@@ -28,10 +28,12 @@ TokenDictionary = {
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
     "dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
-                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME"}],
-    "ret_date": [{"LEMMA": {"IN": ["returning", "return"]}},
+                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "?"},
+                 {"ENT_TYPE": "TIME", "DEP": "pobj"}],
+    "ret_date": [{"LEMMA": {"IN": ["return", "returning"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
-                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME"}]
+                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+                 {"ENT_TYPE": "TIME", "DEP": "pobj"}]
 }
 
 
@@ -62,6 +64,11 @@ def get_similarity(comparator_a, comparator_b):
 
 
 def get_date_from_text(date_text):
+    date_text = date_text.replace(" am", "am")
+    date_text = date_text.replace(" AM", "am")
+    date_text = date_text.replace(" pm", "pm")
+    date_text = date_text.replace(" PM", "pm")
+    print("DATE", date_text)
     ddp = DateDataParser(languages=['en'])
     return ddp.get_date_data(date_text).date_obj
 
@@ -273,10 +280,12 @@ class ChatEngine(KnowledgeEngine):
         return tags, extra_info_appropriate
 
     def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP"):
+        print(doc)
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
+            print(dte)
         else:
             raise UnknownStationTypeException(st_type)
 
@@ -286,8 +295,8 @@ class ChatEngine(KnowledgeEngine):
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
-            elif ('returning' in self.knowledge.keys() and
-                    not self.knowledge['returning']):
+            else:
+                print(date_time)
                 self.declare(Fact(return_date=date_time))
                 tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("rt_", "")
@@ -412,8 +421,6 @@ class ChatEngine(KnowledgeEngine):
             self.modify(f2, extra_info_req=True)
         elif len(self.booking_progress) == 0:
             self.modify(f1, complete=True)
-            self.add_to_message_chain("Great, I've got all I need. Let me find"
-                                      " you the best fare!", req_response=False)
 
     # # Request Extra Info # #
     @Rule(Fact(action="book"),
@@ -462,13 +469,13 @@ class ChatEngine(KnowledgeEngine):
 
     @Rule(Fact(action="book"),
           Fact(extra_info_req=True),
-          Fact(returning=True),
+          NOT(Fact(returning=False)),
           NOT(Fact(extra_info_requested=True)),
           NOT(Fact(return_date=W())),
           salience=94)
     def ask_for_return_date(self):
         """Decides if need to ask user whether they're returning"""
-        self.add_to_message_chain("{REQ:RDT}And when are you returning?", 1)
+        self.add_to_message_chain("{REQ:RTD}And when are you returning?", 1)
         self.declare(Fact(extra_info_requested=True))
 
     @Rule(Fact(action="book"),
@@ -507,13 +514,45 @@ class ChatEngine(KnowledgeEngine):
           Fact(complete=True),
           salience=91)
     def generate_ticket(self):
+        journey_data = {}
+        for f in self.facts:
+            for f_id, val in self.facts[f].items():
+                journey_data[f_id] = val
         try:
-            json = scraper.scrape("JOURNEY")
-        except Exception as e:
-            json = ("Sorry, there are no available tickets between these "
-                    "stations at this time. Please try another station "
-                    "combination or time.")
-        self.add_to_message_chain(str(json))
+            url, json = scraper.scrape(journey_data)
+            print(url)
+            if journey_data['returning']:
+                ticket_price = json['returnJsonFareBreakdowns']
+                print(len(ticket_price))
+                if len(ticket_price) == 0:
+                    ticket_price = json['singleJsonFareBreakdowns'][0]
+                    ticket_price = float(ticket_price['ticketPrice']) * 2
+                else:
+                    ticket_price = ticket_price[0]['ticketPrice']
+                ticket = ["return", ticket_price]
+            else:
+                ticket = ["return",
+                          json['singleJsonFareBreakdowns'][0]['ticketPrice']]
+            msg = ("Great, I've got all I need. The best fare for a {} ticket "
+                   "between {} and {} is £{:.2f}").format(
+                        ticket[0],
+                        json['jsonJourneyBreakdown']['departureStationName'],
+                        json['jsonJourneyBreakdown']['arrivalStationName'],
+                        ticket[1]
+                   )
+            msg_booking = ("I have set up your booking with our preferred "
+                           "booking partner Chiltern Railways by Arriva! "
+                           "Click below to go through to their site to confirm "
+                           "your information and complete your booking.")
+            self.add_to_message_chain(msg, 1, req_response=False)
+            self.add_to_message_chain(msg_booking, 1,
+                                      suggestions=[{"BOOK:" + url}])
+        except StationNotFoundError as e:
+            print("ERROR:", e)
+            msg = ("Sorry, there are no available tickets between these "
+                   "stations at this time. Please try another station "
+                   "combination or time.")
+            self.add_to_message_chain(msg, 1)
 
     # DELAY ACTIONS
 

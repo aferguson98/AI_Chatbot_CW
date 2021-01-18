@@ -1,54 +1,77 @@
+import asyncio
 import json
-import pprint
-from urllib.request import urlopen
+import time
 
+import pyppeteer
+from requests_html import HTMLSession, AsyncHTMLSession
 from bs4 import BeautifulSoup as soup
 
 
+async def get_webpage(url):
+    new_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(new_loop)
+    session = AsyncHTMLSession()
+    browser = await pyppeteer.launch({
+        'ignoreHTTPSErrors': True,
+        'headless': True,
+        'handleSIGINT': False,
+        'handleSIGTERM': False,
+        'handleSIGHUP': False
+    })
+    session._browser = browser
+    resp_page = await session.get(url)
+    await resp_page.html.arender(keep_page=True)
+    return resp_page
+
+
 def scrape(journey_data):
-    # journeyData will store variables extracted from the user input to
-    # create the query
+    """
 
-    # Norwich - London, 5 Dec 2020, 12:45, return 6 Dec 2020, 13:45
-    # Should replace later on with user data from journeyData
-    url = "https://ojp.nationalrail.co.uk/service/timesandfares/NRW/LST" \
-          "/050221/1245/dep/060221/1345/dep"
+    Parameters
+    ----------
+    journey_data
 
-    # Open the webpage
-    webpage = urlopen(url)
+    Returns
+    -------
 
-    # Transform page into HTML
-    html = webpage.read()
+    """
 
-    # Breakdown HTML into elements
+    if journey_data['returning']:
+        url_return = "&inboundTime={}T{}&inboundTimeType=DEPARTURE"
+        url_return = url_return.format(
+            journey_data['return_date'].strftime("%Y-%m-%d"),
+            journey_data['return_date'].strftime("%H:%M:00")
+        )
+        inbound_req = "true"
+    else:
+        url_return = ""
+        inbound_req = "false"
+
+    url = ("https://buy.chilternrailways.co.uk/search?origin=GB{}"
+           "&destination=GB{}&adults={}&children={}&outboundTime={}T{}"
+           "&outboundTimeType=DEPARTURE&inbound={}{}"
+           "&railcards=%5B{}%5D&ls=LS_1_0&ls=LS_2_9&p=PRICE_P_1_8"
+           "&p=PRICE_P_2_150")
+    url = url.format(journey_data['depart'], journey_data['arrive'],
+                     journey_data['no_adults'].strip(),
+                     journey_data['no_children'].strip(),
+                     journey_data['departure_date'].strftime("%Y-%m-%d"),
+                     journey_data['departure_date'].strftime("%H:%M:00"),
+                     inbound_req, url_return, "")
+
+    webpage = asyncio.run(get_webpage(url))
+    print(webpage.page)
+    html = webpage.text
     page_scrape = soup(html, "html.parser")
     print(page_scrape)
-
-    # Get element with "has-cheapest" in the class
-    cheap_elements = page_scrape.find("td", {"class": "fare has-cheapest"})
+    cheap_elements = page_scrape.find(
+        "div", {"class": "price-table__cell-content--selectedOut"}
+    )
     print(cheap_elements)
-
-    # Get content of the script tag
     cheap_script = cheap_elements.find('script').contents
-
-    # Strip the text from special chars
-    stipped_cheap_text = str(cheap_script).strip("'<>() ").replace(
+    stripped_cheap_text = str(cheap_script).strip("'<>() ").replace(
         '\'', '\"').replace('\00', '').replace('["\\n\\t\\t\\t', "").replace(
         '\\n\\t\\t"]', "")
-    print(stipped_cheap_text)
 
     # Turn json into dictionary        
-    json_cheap = json.loads(stipped_cheap_text)
-
-    pprint.pprint(json_cheap)
-
-    # JS makes AJAX request to scrape(), which will return the dictionary
-    # info. JS will build the ticket to be displayed into the HTML.
-
-
-# scrape("hello")
-
-# python dict with keys:values of what the bot knows based on user input
-# populate these when the user gives them. They start empty ask different
-# questions based on what bot knows. I.E. having starting point and time =>
-# need destination. etc...
+    return [url, json.loads(stripped_cheap_text)]
