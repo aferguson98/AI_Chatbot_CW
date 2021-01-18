@@ -13,6 +13,7 @@ from Database.DatabaseConnector import DBConnection
 from akobot import StationNoMatchError, StationNotFoundError, \
     UnknownPriorityException, UnknownStationTypeException, scraper
 from akobot.AKOBot import NLPEngine
+from DelayPrediction.Prediction import Predictions
 
 TokenDictionary = {
     "book": [{"LEMMA": {"IN": ["book", "booking", "purchase", "buy"]}}],
@@ -31,7 +32,9 @@ TokenDictionary = {
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME"}],
     "ret_date": [{"LEMMA": {"IN": ["returning", "return"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
-                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME"}]
+                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME"}],
+    "delay_dep_time" : [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME"}],
 }
 
 
@@ -77,6 +80,7 @@ class ChatEngine(KnowledgeEngine):
         # Knowledge dict
         self.knowledge = {}
         self.booking_progress = "dl_dt_al_rt_rs_na_nc_"
+        self.delay_progress = "dl_at_dt_"
 
         # User Interface output
         self.def_message = {"message": "I'm sorry. I don't know how to help "
@@ -164,7 +168,7 @@ class ChatEngine(KnowledgeEngine):
                     raise StationNotFoundError(msg.format(search_station))
 
     def get_dep_arr_station(self, doc, message_text, tags, st_type="DEP",
-                            extra_info_appropriate=True):
+                            extra_info_appropriate=True, must_search_station=True):
         """
         Get the arrival or departure station from the message_text and return
         the relevant tags and if extra info can be asked for
@@ -187,6 +191,9 @@ class ChatEngine(KnowledgeEngine):
             True if the user can be asked for extra information or False if it's
             not appropriate
             default: True
+        must_search_station: bool
+            True by default, false when used for delay prediction. Reusing the
+            method for departure/arrival station, but keeping the station name
         Returns
         -------
         list of str
@@ -225,10 +232,19 @@ class ChatEngine(KnowledgeEngine):
                 station = self.find_station(search_station)
                 tags += "{" + st_type + ":" + station[1] + "}"
                 if st_type == "DEP":
-                    self.declare(Fact(depart=station[0]))
+                    if must_search_station:
+                        self.declare(Fact(depart=station[0]))
+                    else:
+                        self.declare(Fact(depart = station[1]))
                 else:
-                    self.declare(Fact(arrive=station[0]))
-                self.booking_progress = self.booking_progress.replace(progress_tag, "")
+                    if must_search_station:
+                        self.declare(Fact(arrive=station[0]))
+                    else:
+                        self.declare(Fact(arrive = station[1]))
+                if must_search_station:
+                    self.booking_progress = self.booking_progress.replace(progress_tag, "")
+                else:
+                    self.delay_progress = self.delay_progress.replace(progress_tag, "")
             except StationNoMatchError as e:
                 extra_info_appropriate = False
                 self.add_to_message_chain(
@@ -277,6 +293,8 @@ class ChatEngine(KnowledgeEngine):
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
+        elif st_type == "DLY":
+            dte = self.get_matches(doc, TokenDictionary['delay_dep_time'])
         else:
             raise UnknownStationTypeException(st_type)
 
@@ -286,6 +304,12 @@ class ChatEngine(KnowledgeEngine):
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
+
+            elif st_type == "DLY":
+                self.declare(Fact(departure_date=date_time))
+                tags += "{DTM:" + date_time.strftime("%H:%M") + "}"
+                self.delay_progress = self.delay_progress.replace("dt_", "")
+
             elif ('returning' in self.knowledge.keys() and
                     not self.knowledge['returning']):
                 self.declare(Fact(return_date=date_time))
@@ -516,6 +540,52 @@ class ChatEngine(KnowledgeEngine):
         self.add_to_message_chain(str(json))
 
     # DELAY ACTIONS
+    @Rule(Fact(action="delay"),
+          AS.f1 << Fact(complete=False),
+          AS.f2 << Fact(extra_info_req=False),
+          Fact(message_text=MATCH.message_text),
+          salience=99)
+    def delay_not_complete(self, f1, f2, message_text):
+        """
+        If delay prediction model doesn't have enough information to be called,
+        check if any more information has been provided.
+                
+        Parameters
+        ----------
+        f1: Fact
+            The Fact representing whether the booking is complete or not
+
+        f2: Fact
+            The Fact representing whether the bot needs to request extra info
+            to complete this booking
+
+        message_text: str
+            The message text passed by the user to the Chat class
+        """
+        doc = self.nlp_engine.process(message_text)
+        tags = ""
+        extra_info_appropriate = True
+
+        for st_type in ["DEP", "ARR"]:
+            tags, extra_info_appropriate = self.get_dep_arr_station(
+                doc, message_text, tags, st_type, extra_info_appropriate, False
+            )
+
+        for st_type in ["DEP"]:
+            tags = self.get_dep_arr_date(
+                doc, message_text, tags, st_type
+            )
+        
+        self.add_to_message_chain(tags, priority=7)
+
+        if len(self.booking_progress) != 0 and extra_info_appropriate:
+            self.modify(f2, extra_info_req=True)
+        elif len(self.booking_progress) == 0:
+            self.modify(f1, complete=True)
+            self.add_to_message_chain("Thanks, I can now predict your arrival", req_response=False)
+
+        Predictions.display_results()
+        
 
     # HELP ACTIONS
 

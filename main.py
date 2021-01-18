@@ -59,5 +59,5 @@ def process_user_input():
                     "response_req": response_req})
 
 
-# if __name__ == '__main__':
-#     app.run()
+if __name__ == '__main__':
+    app.run()
