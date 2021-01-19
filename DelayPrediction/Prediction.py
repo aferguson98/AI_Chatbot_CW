@@ -78,19 +78,17 @@ class Predictions:
         """
         Pulls all journeys from DB that have FROM and TO station and don't have null values as arrival/departure times
         """
-      
+        # main.March2019Data - contains 2019 March Data
+        # main.TrainingData - contains all CSV data
+        # main.TransformedTraining - Contains data with no NULLS
+        # main.Data - contains no NULL data from 2018 and 2019
         query = """SELECT rid_FROM, tpl_FROM, ptd, dep_at, tpl_TO, pta, arr_at FROM
-                            (SELECT rid AS rid_FROM, tpl AS tpl_FROM, ptd, dep_at FROM main.March2019Data 
-                            WHERE tpl = '{0}'
-                            AND dep_at IS NOT NULL
-                            AND ptd IS NOT NULL
-                            ) AS x
+                            (SELECT rid AS rid_FROM, tpl AS tpl_FROM, ptd, dep_at FROM main.Data 
+                            WHERE tpl = '{0}') AS x
                             JOIN
-                            (SELECT rid AS rid_TO, tpl AS tpl_TO, pta, arr_at FROM main.March2019Data 
-                            WHERE tpl = '{1}'
-                            AND arr_at IS NOT NULL
-                            AND pta IS NOT NULL
-                            ) AS y on x.rid_FROM = y.rid_TO
+                            (SELECT rid AS rid_TO, tpl AS tpl_TO, pta, arr_at FROM main.Data 
+                            WHERE tpl = '{1}') AS y 
+                            on x.rid_FROM = y.rid_TO
                         ORDER BY rid_FROM """.format(self.departure_station, self.arrival_station)
    
         result = self.db_connection.send_query(query).fetchall()
