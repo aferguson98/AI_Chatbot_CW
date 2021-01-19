@@ -3,3 +3,5 @@ spacy~=2.3.3
 beautifulsoup4~=4.9.3
 Flask~=1.1.2
 experta~=1.9.4
+requests~=2.25.1
+dateparser~=1.0.0

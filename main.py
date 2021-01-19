@@ -2,6 +2,7 @@ import datetime
 
 from flask import Flask, jsonify, render_template, request
 
+from akobot import StationNotFoundError
 from akobot.Chat import Chat
 
 app = Flask(__name__, template_folder='templates')
@@ -42,15 +43,15 @@ def process_user_input():
         suggestions = message[1]
         response_req = message[2]
     else:
-        #try:
-        message = this_chat.add_message("human",
+        try:
+            message = this_chat.add_message("human",
                                             user_input,
                                             datetime.datetime.now())
-        #except Exception as e:
-        #    print(e)
-         #   message = ["Sorry! There has been an issue with this chat, please "
-          #             "reload the page to start a new chat.", ["Reload Page"],
-           #            True]
+        except StationNotFoundError as e:
+            print(e)
+            message = ["Sorry! There has been an issue with this chat, please "
+                       "reload the page to start a new chat.", ["Reload Page"],
+                       True]
         response = message[0]
         suggestions = message[1]
         response_req = message[2]

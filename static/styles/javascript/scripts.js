@@ -48,6 +48,9 @@ function sendMessage(text) {
     $('#user_input').val('');
     // write the message to UI
     messageObject.write(text);
+    let msgElement = `<div class="message bot typing"><span class="icon"></span><span class="content">
+                      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div></span></div>`;
+    $('#chat').append(msgElement);
 }
 
 // AJAX call to back-end
@@ -68,6 +71,7 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
         datatype:"json",
         data: {"user_input" : user_message, "is_system": isSystem},
         success: function(output){
+            $(".typing").remove();
             messageObject.text = output.message;
             messageObject.suggestions = output.suggestions;
             messageObject.response_req = output.response_req;
@@ -221,6 +225,7 @@ function getControlTags(messageText){
         switch (tag){
             case 'REQ':
                 //The Reasoner has made a request of the user - the following message will need the matching tag code
+                console.log(value)
                 tag_message += tag_req_map[value];
                 break;
             default:
