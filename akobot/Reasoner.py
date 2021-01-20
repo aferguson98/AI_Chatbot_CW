@@ -295,7 +295,7 @@ class ChatEngine(KnowledgeEngine):
             extra_info_appropriate = False
         return tags, extra_info_appropriate
 
-    def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP"):
+    def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP", extra_info_appropriate = True):
         print(doc)
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
@@ -304,10 +304,22 @@ class ChatEngine(KnowledgeEngine):
         elif st_type == "DLY":
             dte = None
             if "departing at" in message_text:
-                if re.match('^[0-24]{2}:[0-59]{2}$', message_text):
-                    dte = doc
+                if re.search('\d{2}:\d{2}$', message_text):
+                    correct_string = (re.search('\d{2}:\d{2}$', message_text)[0]).split(":")
+                    if 0 <= int(correct_string[0]) < 24 and 0 <= int(correct_string[1]) < 60:
+                        dte = doc
+                        if dte is not None:
+                            self.declare(Fact(departure_date=dte))
+                            tags += "{DLY:" + str(dte) + "}"
+                            self.delay_progress = self.delay_progress.replace("dt_", "")
+                    else:
+                        self.add_to_message_chain("{REQ:DDT}Please enter valid"
+                                              " time - 00:00 - 23:59")
+                        extra_info_appropriate = False
                 else:
-                    self.add_to_message_chain("Please enter time in the HH:MM format.")
+                    self.add_to_message_chain("{REQ:DDT}Please enter time"
+                                              " in the HH:MM format.")
+                    extra_info_appropriate = False
             if "departing at" in message_text:
                 dte = doc
         else:
@@ -321,18 +333,12 @@ class ChatEngine(KnowledgeEngine):
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
-
-            elif st_type == "DLY":
-                self.declare(Fact(departure_date=dte))
-                tags += "{DTM:" + str(dte) + "}"
-                self.delay_progress = self.delay_progress.replace("dt_", "")
-
             elif ('returning' in self.knowledge.keys() and
                     not self.knowledge['returning']):
                 self.declare(Fact(return_date=date_time))
                 tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("rt_", "")
-        return tags
+        return tags, extra_info_appropriate
 
     @DefFacts()
     def _initial_action(self):
@@ -429,7 +435,7 @@ class ChatEngine(KnowledgeEngine):
         )
 
         for st_type in ["DEP", "RET"]:
-            tags = self.get_dep_arr_date(
+            tags, extra_info_appropriate = self.get_dep_arr_date(
                 doc, message_text, tags, st_type
             )
 
@@ -619,8 +625,8 @@ class ChatEngine(KnowledgeEngine):
             )
 
         for st_type in ["DLY"]:
-            tags = self.get_dep_arr_date(
-                doc, message_text, tags, st_type
+            tags, extra_info_appropriate  = self.get_dep_arr_date(
+                doc, message_text, tags, st_type, extra_info_appropriate
             )
 
         self.add_to_message_chain(tags, priority=7)
@@ -629,7 +635,8 @@ class ChatEngine(KnowledgeEngine):
             self.modify(f2, extra_info_req=True)
         elif len(self.delay_progress) == 0:
             self.modify(f1, complete=True)
-            self.add_to_message_chain("Thanks, I can now predict your arrival. This will take about 15 seconds. Please hold on....", req_response=False)
+            # self.add_to_message_chain("Thanks, I can now predict your arrival. "
+            #         "This shouldn't take longer than 10 seconds. Please hold on....")
                
 
     @Rule(Fact(action="delay"),
@@ -676,9 +683,9 @@ class ChatEngine(KnowledgeEngine):
         for f in self.facts:
             for f_id, val in self.facts[f].items():
                 journey_data[f_id] = val
-        print(journey_data['depart'], journey_data['arrive'], journey_data['departure_date'])
+        dep_time = re.search('\d{2}:\d{2}$', str(journey_data['departure_date']))
         pr = Predictions()
-        delay_prediction = pr.display_results(journey_data['depart'], journey_data['arrive'], str(journey_data['departure_date']).replace("departing at ", ""))
+        delay_prediction = pr.display_results(journey_data['depart'], journey_data['arrive'], dep_time[0])
         self.add_to_message_chain(delay_prediction)
 
     # HELP ACTIONS

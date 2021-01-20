@@ -1,5 +1,5 @@
 let tag_message = "";
-
+let complete_journey = []
 let tag_req_map = {
     "DEP": "{FROM}",
     "ARR": "{TO}",
@@ -77,6 +77,7 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
             messageObject.response_req = output.response_req;
             messageObject.write(output);
             changeUIFromTags(output.message, new Date().toTimeString().slice(0, 5));
+            // completeDelayPrediction(output.message);
             getControlTags(output.message);
             //synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
             if(messageObject.text.includes("Ok great, let's get your booking started!")){
@@ -260,3 +261,25 @@ function getNearestStations(latlng){
         }
     )
 }
+
+// function completeDelayPrediction(msg){
+//     let regex = new RegExp('{([^}]+)}', 'g');
+//     let results = [...msg.matchAll(regex)]
+
+//     results.forEach(function(element){
+//         let tagArr = element[1].split(":");
+//         let tag = tagArr[0]
+//         complete_journey.push(tag)
+
+//         if (complete_journey.includes("DEP") 
+//                         && complete_journey.includes("ARR") 
+//                                         && complete_journey.includes("DLY")) {
+//             let msgElement = `<div class="message bot"><span class="icon"></span><span class="content">
+//                             Thanks, I can now predict your arrival. This shouldn't take longer than 10 seconds. 
+//                             Please hold on....
+//                             </span></div>`;
+//             $('#chat').append(msgElement);
+//         }
+//     });
+
+// }
