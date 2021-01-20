@@ -409,8 +409,6 @@ class Predictions:
 
 
         """
-
-
         self.departure_station = self.station_finder(FROM)
         self.arrival_station = self.station_finder(TO)
         self.time_departure = Tdepart
@@ -426,23 +424,20 @@ class Predictions:
         delay = self.predict_delay()
 
         if (delay[0] == 0) and (delay[1] == 0):
-            print("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival[0]) 
-                + ":" + str(arrival[1]))
             return ("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival[0]) 
                 + ":" + str(arrival[1]))
         elif delay[0] == 0:
-            print("Your journey is expected to be delayed by " + str(delay[1]) + " minutes and " + str(delay[2]) + 
-                " seconds. You will arrive at " + TO +  " at " + str(arrival[0]) + ":" + str(arrival[1]))
-            return ("Your journey is expected to be delayed by " + str(delay[1]) + " minutes and " + str(delay[2]) + 
-                " seconds. You will arrive at " + TO +  " at " + str(arrival[0]) + ":" + str(arrival[1]))
-
-        
+            return ("You will arrive at " + TO +  " at " + str(arrival[0]).zfill(2) + ":" + str(arrival[1]).zfill(2) + 
+                    ". The total journey delay is predicted to be " + str(delay[1]).zfill(2) + 
+                    " minutes and " + str(delay[2]).zfill(2) + " seconds.")
 
 
-pr = Predictions()
+
+
+# pr = Predictions()
 # pr.station_finder("DS")
 # pr.station_finder("Norwich")
-pr.display_results("Norwich", "Colchester", "17:30")
+# pr.display_results("Norwich", "Colchester", "17:30")
 
 
 

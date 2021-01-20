@@ -3,6 +3,7 @@ Reasoner.py
 
 Contains classes related to reasoning
 """
+import re
 from difflib import SequenceMatcher
 
 from dateparser.date import DateDataParser
@@ -297,17 +298,18 @@ class ChatEngine(KnowledgeEngine):
     def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP"):
         print(doc)
         if st_type == "DEP":
-            print("In DEP")
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
         elif st_type == "RET":
-            print("In RET")
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
         elif st_type == "DLY":
             dte = None
             if "departing at" in message_text:
+                if re.match('^[0-24]{2}:[0-59]{2}$', message_text):
+                    dte = doc
+                else:
+                    self.add_to_message_chain("Please enter time in the HH:MM format.")
+            if "departing at" in message_text:
                 dte = doc
-                print("DTE=============")
-                print(dte)
         else:
             raise UnknownStationTypeException(st_type)
 
@@ -585,8 +587,6 @@ class ChatEngine(KnowledgeEngine):
             self.add_to_message_chain(msg, 1)
 
     # DELAY ACTIONS
-
-
     @Rule(Fact(action="delay"),
           AS.f1 << Fact(complete=False),
           AS.f2 << Fact(extra_info_req=False),
@@ -619,7 +619,6 @@ class ChatEngine(KnowledgeEngine):
             )
 
         for st_type in ["DLY"]:
-            print("Asking for departure_date!!!!!!!!!")
             tags = self.get_dep_arr_date(
                 doc, message_text, tags, st_type
             )
@@ -667,6 +666,7 @@ class ChatEngine(KnowledgeEngine):
         self.add_to_message_chain("{REQ:DDT}What time did you actually depart the station?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
+
 
     @Rule(Fact(action="delay"),
           Fact(complete = True),
