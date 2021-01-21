@@ -619,6 +619,9 @@ class ChatEngine(KnowledgeEngine):
         tags = ""
         extra_info_appropriate = True
 
+        if len(self.delay_progress) == 0:
+            self.modify(f1, complete=True)
+
         for st_type in ["DEP", "ARR"]:
             tags, extra_info_appropriate = self.get_dep_arr_station(
                 doc, message_text, tags, st_type, extra_info_appropriate, False
@@ -634,10 +637,9 @@ class ChatEngine(KnowledgeEngine):
         if len(self.delay_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.delay_progress) == 0:
-            self.modify(f1, complete=True)
-            # self.add_to_message_chain("Thanks, I can now predict your arrival. "
-            #         "This shouldn't take longer than 10 seconds. Please hold on....")
-               
+            # self.modify(f1, complete=True)
+            self.add_to_message_chain("Thanks, I can now predict your arrival. "
+                    "This shouldn't take longer than 10 seconds. Please hold on....")         
 
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
@@ -674,10 +676,9 @@ class ChatEngine(KnowledgeEngine):
                                   1)
         self.declare(Fact(extra_info_requested=True))
 
-
     @Rule(Fact(action="delay"),
           Fact(complete = True),
-          salience=95)
+          salience=94)
     def predict_delay(self):
         journey_data = {}
         for f in self.facts:
@@ -686,7 +687,7 @@ class ChatEngine(KnowledgeEngine):
         dep_time = re.search('\d{2}:\d{2}$', str(journey_data['departure_date']))
         pr = Predictions()
         delay_prediction = pr.display_results(journey_data['depart'], journey_data['arrive'], dep_time[0])
-        self.add_to_message_chain(delay_prediction)
+        self.add_to_message_chain(delay_prediction, priority=0)
 
     # HELP ACTIONS
 
