@@ -68,7 +68,7 @@ def get_date_from_text(date_text):
     date_text = date_text.replace(" AM", "am")
     date_text = date_text.replace(" pm", "pm")
     date_text = date_text.replace(" PM", "pm")
-    print("DATE", date_text)
+    print("DATE>>>>", date_text)
     ddp = DateDataParser(languages=['en'])
     return ddp.get_date_data(date_text).date_obj
 
@@ -144,6 +144,7 @@ class ChatEngine(KnowledgeEngine):
                  " COLLATE NOCASE")
         result = self.db_connection.send_query(query,
                                                (search_station,)).fetchall()
+
         if result:
             return result[0]
         else:
@@ -170,7 +171,7 @@ class ChatEngine(KnowledgeEngine):
                     msg = "Unable to find station {}"
                     raise StationNotFoundError(msg.format(search_station))
 
-    def get_dep_arr_station(self, doc, message_text, tags, st_type="DEP",
+    def get_dep_arr_station(self, doc, message_text, tags, st_type,
                             extra_info_appropriate=True):
         """
         Get the arrival or departure station from the message_text and return
@@ -226,6 +227,8 @@ class ChatEngine(KnowledgeEngine):
             search_station = str(matches[1:])
         elif "{TAG:" + st_type + "}" in message_text:
             search_station = message_text.replace("{TAG:" + st_type + "}", "")
+        elif "arriving to" in message_text and st_type=="ARR":
+            search_station = message_text.split("arriving to")[1]
 
         if search_station:
             try:
