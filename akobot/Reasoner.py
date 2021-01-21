@@ -11,7 +11,7 @@ from spacy.matcher import Matcher
 
 from Database.DatabaseConnector import DBConnection
 from akobot import StationNoMatchError, StationNotFoundError, \
-    UnknownPriorityException, UnknownStationTypeException, scraper
+    UnknownPriorityException, UnknownStationTypeException, scraper_1
 from akobot.AKOBot import NLPEngine
 
 TokenDictionary = {
@@ -519,7 +519,7 @@ class ChatEngine(KnowledgeEngine):
             for f_id, val in self.facts[f].items():
                 journey_data[f_id] = val
         try:
-            url, json = scraper.scrape(journey_data)
+            url, json = scraper_1.scrape(journey_data)
             print(url)
             if journey_data['returning']:
                 ticket_price = json['returnJsonFareBreakdowns']
