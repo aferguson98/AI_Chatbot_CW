@@ -318,8 +318,8 @@ class ChatEngine(KnowledgeEngine):
                 print("<<<<<TRYING TO GET DTEEEEE", dte)
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
-            print(dte)
-        elif st_type == "DLY":
+            print(dte)  
+      elif st_type == "DLY":
             dte = None
             if "departing at" in message_text:
                 if re.search('\d{2}:\d{2}$', message_text):
