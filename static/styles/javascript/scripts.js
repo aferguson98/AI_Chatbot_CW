@@ -1,5 +1,6 @@
 let tag_message = "";
-
+let complete_journey = []
+let executed = false;
 let tag_req_map = {
     "DEP": "{FROM}",
     "ARR": "{TO}",
@@ -64,6 +65,7 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
         side: 'left',
         suggestions: []
     });
+    
     // request to the backend
     $.ajax({
         type: 'POST',
@@ -77,6 +79,7 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
             messageObject.response_req = output.response_req;
             messageObject.write(output);
             changeUIFromTags(output.message, new Date().toTimeString().slice(0, 5));
+            completeDelayPrediction(output.message);
             getControlTags(output.message);
             //synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
             if(messageObject.text.includes("Ok great, let's get your booking started!")){
@@ -259,4 +262,23 @@ function getNearestStations(latlng){
             }
         }
     )
+}
+
+function completeDelayPrediction(msg){
+    let regex = new RegExp('{([^}]+)}', 'g');
+    let results = [...msg.matchAll(regex)];
+    results.forEach(function(element){
+        let tagArr = element[1].split(":");
+        let tag = tagArr[0]
+        complete_journey.push(tag)
+    });
+    if (complete_journey.includes("DEP") && complete_journey.includes("ARR") 
+                    && complete_journey.includes("DLY")) {
+            if (!executed){
+                executed = true;
+                sendInputData("anything");
+            };
+        };
+    
+
 }
