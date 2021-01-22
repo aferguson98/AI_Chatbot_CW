@@ -28,8 +28,11 @@ TokenDictionary = {
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
     "dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
-                 {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "?"},
-                 {"ENT_TYPE": "TIME", "DEP": "pobj"}],
+                 {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+    "other_dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+                    {"POS": "ADP"}, {"ENT_TYPE": "TIME", "OP": "+"},
+                    {"POS": "ADP", "OP": "?"},{"ENT_TYPE": "TIME", "OP": "?"}],
+                    # add another ent_type : DATE without OP : +
     "ret_date": [{"LEMMA": {"IN": ["return", "returning"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
@@ -257,11 +260,15 @@ class ChatEngine(KnowledgeEngine):
     def get_if_return(self, doc, message_text, tags, extra_info_appropriate):
         if "{TAG:RET}" in message_text:
             ret = self.get_matches(doc, TokenDictionary['yes'])
+            print("User wants to return ????????", ret)
             if ret is None:
                 ret = self.get_matches(doc, TokenDictionary['return'])
+            print("RETURN YES", ret)
             sgl = self.get_matches(doc, TokenDictionary['no'])
+            print("USER WANT SINGLE??????", sgl)
             if sgl is None:
                 sgl = self.get_matches(doc, TokenDictionary['single'])
+            print("SINGLE YES", sgl)
         else:
             ret = self.get_matches(doc, TokenDictionary['return'])
             sgl = self.get_matches(doc, TokenDictionary['single'])
@@ -284,22 +291,30 @@ class ChatEngine(KnowledgeEngine):
 
     def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP"):
         print(doc)
+        for d in doc:
+            print(d)
+            print(d.ent_type_)
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
+            print("DTEEEEEE==========", dte)
+            if dte is None: 
+                dte = self.get_matches(doc, TokenDictionary['other_dep_date'])
+                print("<<<<<TRYING TO GET DTEEEEE", dte)
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
-            print(dte)
+            print(dte)  
         else:
             raise UnknownStationTypeException(st_type)
 
         if dte is not None:
             date_time = get_date_from_text(str(dte[2:]))
             if st_type == "DEP":
+                
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
             else:
-                print(date_time)
+
                 self.declare(Fact(return_date=date_time))
                 tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("rt_", "")
@@ -333,6 +348,7 @@ class ChatEngine(KnowledgeEngine):
             The message text passed by the user to the Chat class
         """
         doc = self.nlp_engine.process(message_text)
+        
         matcher = Matcher(self.nlp_engine.nlp.vocab)
         matcher.add("BOOKING_PATTERN", None, TokenDictionary['book'])
         matches = matcher(doc)
@@ -444,7 +460,7 @@ class ChatEngine(KnowledgeEngine):
           salience=97)
     def ask_for_departure_date(self):
         """Decides if need to ask user for the arrival point"""
-        self.add_to_message_chain("{REQ:DDT}When do you want to depart?",
+        self.add_to_message_chain("{REQ:DDT}When do you want to depart? (Date AT time)",
                                   1)
         self.declare(Fact(extra_info_requested=True))
 
@@ -472,7 +488,7 @@ class ChatEngine(KnowledgeEngine):
 
     @Rule(Fact(action="book"),
           Fact(extra_info_req=True),
-          NOT(Fact(returning=False)),
+          Fact(returning=True),
           NOT(Fact(extra_info_requested=True)),
           NOT(Fact(return_date=W())),
           salience=94)
