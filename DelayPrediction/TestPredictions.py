@@ -300,12 +300,12 @@ class TestPredictions(Predictions):
 
 
 test = TestPredictions()
-depart = "14:45"
+depart = "20:15"
 print("Departing at:", depart)
 
-print("Arrival x == 1:")
+print("Arrival x == 1:")  # departure_time
 test.test_arrival("Norwich", "Colchester", depart, 1)
-print("Arrival x == 2:")
+print("Arrival x == 2:")  # departure_time , day_of_week
 test.test_arrival("Norwich", "Colchester", depart, 2)
 
 print("Delay x == 1:")

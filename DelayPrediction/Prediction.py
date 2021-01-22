@@ -22,7 +22,7 @@ class Predictions:
         self.departure_station = ""
         self.arrival_station = ""
         self.time_departure = ""
-        self.day_of_week = datetime.today().weekday()
+        self.day_of_week = datetime.today().weekday() # 0 = Monday and 6 = Sunday
         self.db_connection = DBConnection('AKODatabase.db')
         self.journeys = {}
         self.stations = {
@@ -78,19 +78,17 @@ class Predictions:
         """
         Pulls all journeys from DB that have FROM and TO station and don't have null values as arrival/departure times
         """
-      
+        # main.March2019Data - contains 2019 March Data
+        # main.TrainingData - contains all CSV data
+        # main.TransformedTraining - Contains data with no NULLS
+        # main.Data - contains no NULL data from 2018 and 2019
         query = """SELECT rid_FROM, tpl_FROM, ptd, dep_at, tpl_TO, pta, arr_at FROM
-                            (SELECT rid AS rid_FROM, tpl AS tpl_FROM, ptd, dep_at FROM main.March2019Data 
-                            WHERE tpl = '{0}'
-                            AND dep_at IS NOT NULL
-                            AND ptd IS NOT NULL
-                            ) AS x
+                            (SELECT rid AS rid_FROM, tpl AS tpl_FROM, ptd, dep_at FROM main.Data 
+                            WHERE tpl = '{0}') AS x
                             JOIN
-                            (SELECT rid AS rid_TO, tpl AS tpl_TO, pta, arr_at FROM main.March2019Data 
-                            WHERE tpl = '{1}'
-                            AND arr_at IS NOT NULL
-                            AND pta IS NOT NULL
-                            ) AS y on x.rid_FROM = y.rid_TO
+                            (SELECT rid AS rid_TO, tpl AS tpl_TO, pta, arr_at FROM main.Data 
+                            WHERE tpl = '{1}') AS y 
+                            on x.rid_FROM = y.rid_TO
                         ORDER BY rid_FROM """.format(self.departure_station, self.arrival_station)
    
         result = self.db_connection.send_query(query).fetchall()
@@ -176,7 +174,7 @@ class Predictions:
                 One hot encoding if rush hour(1) or not(0)
         """
         rush_hour = []
-        # (hour == 9 and minute == 0)
+
         if (5 <= hour <= 9 ) or (16 <= hour <= 18):
             if (hour == 5 and 45 <= minute < 60) or (5 < hour < 9):
                 rush_hour = [1]
@@ -186,9 +184,6 @@ class Predictions:
                 rush_hour = [1]
         elif (9 < hour < 16) or (hour == 9 and 0 < minute < 60) or (18 < hour < 24) or (0 < hour < 5):
             rush_hour = [0]
-
-        
-        
 
         return rush_hour
 
@@ -414,7 +409,6 @@ class Predictions:
 
 
         """
-
         self.departure_station = self.station_finder(FROM)
         self.arrival_station = self.station_finder(TO)
         self.time_departure = Tdepart
@@ -430,23 +424,20 @@ class Predictions:
         delay = self.predict_delay()
 
         if (delay[0] == 0) and (delay[1] == 0):
-            print("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival[0]) 
+            return ("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival[0]) 
                 + ":" + str(arrival[1]))
-            # return ("Your journey is expected to be delayed by less than a minute. You will arrive at " + TO +  " at " + str(arrival[0]) 
-            #     + ":" + str(arrival[1]))
         elif delay[0] == 0:
-            print("Your journey is expected to be delayed by " + str(delay[1]) + " minutes and " + str(delay[2]) + 
-                " seconds. You will arrive at " + TO +  " at " + str(arrival[0]) + ":" + str(arrival[1]))
-            # return ("Your journey is expected to be delayed by " + str(delay[1]) + " minutes and " + str(delay[2]) + 
-            #     " seconds. You will arrive at " + TO +  " at " + str(arrival[0]) + ":" + str(arrival[1]))
-
-        
+            return ("You will arrive at " + TO +  " at " + str(arrival[0]).zfill(2) + ":" + str(arrival[1]).zfill(2) + 
+                    ". The total journey delay is predicted to be " + str(delay[1]).zfill(2) + 
+                    " minutes and " + str(delay[2]).zfill(2) + " seconds.")
 
 
-pr = Predictions()
+
+
+# pr = Predictions()
 # pr.station_finder("DS")
 # pr.station_finder("Norwich")
-pr.display_results("Norwich", "Colchester", "17:30")
+# pr.display_results("Norwich", "Colchester", "17:30")
 
 
 
@@ -463,3 +454,27 @@ pr.display_results("Norwich", "Colchester", "17:30")
 #       "lbfgs" output doesn't get much affected by the size of the input, producing similar results for both x (size of input) == 1 or more
 #       "adam" output differ by a few minutes (for size of input 1 or more), however multiple runs prove that larger input size produces
 #           more consistent results with little difference between each other
+
+
+
+# KNN - delay prediction - actual departure (minus) expected departure.
+# MLP - arrival prediction - actual departure.
+#   Day of the week, Weekend/weekday, TimeOfArrival, Morning/Midday/Afternoon/Night, Rushhour/noRush
+
+
+# Time(12:45 = 54513), "Midday" = 0, 1, 0, 0 , "not rushour" => 0, "4 (Friday)" => 54513, 0, 1, 0, 0, 0, 4
+# 54513, 0, 1, 0, 0, 0, 4
+
+# 54000, 1, 0, 0, 0, 0, 4
+# 12312, 0, 0, 0, 1, 0, 2
+# 54513, 0, 1, 0, 0, 1, 4    => arrival_time = 
+# # day_segmet = [Morning/Midday/Afternoon/Night]
+# day_segmet = [0, 1, 0, 0] => 0, 1, 0, 0
+# rush_hour = [Rush/NoRush] => [1, 0] => [0]
+# asdsa = [1, 1, 1, 0]
+# 
+
+# Norwich 8 delay
+# RandomStation = 2 faster
+# RandomTwo = 3 faster
+# Colchecster = ON TIME
