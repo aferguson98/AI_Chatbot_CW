@@ -61,8 +61,10 @@ def process_user_input():
 
 
 if __name__ == '__main__':
+    # If there's any arg then we're deploying over the web
     if len(sys.argv) > 1:
         port = int(os.environ.get('PORT', 5000))
         app.run(host='0.0.0.0', port=port)
+    # Otherwise, it's a local deployment
     else:
         app.run()
