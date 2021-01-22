@@ -12,7 +12,7 @@ from spacy.matcher import Matcher
 
 from Database.DatabaseConnector import DBConnection
 from akobot import StationNoMatchError, StationNotFoundError, \
-    UnknownPriorityException, UnknownStationTypeException, scraper_1
+    UnknownPriorityException, UnknownStationTypeException, scraper_1, scraper
 from akobot.AKOBot import NLPEngine
 from DelayPrediction.Prediction import Predictions
 
@@ -160,7 +160,7 @@ class ChatEngine(KnowledgeEngine):
                      "COLLATE NOCASE")
             result = self.db_connection.send_query(query,
                                                    (search_station,)
-                                                  ).fetchall()
+                                                   ).fetchall()
             if result and len(result) == 1:
                 return result[0]
             else:
@@ -439,6 +439,8 @@ class ChatEngine(KnowledgeEngine):
             The message text passed by the user to the Chat class
         """
         doc = self.nlp_engine.process(message_text)
+        print([d.shape_ for d in doc])
+        print([d.ent_type_ for d in doc])
         tags = ""
         extra_info_appropriate = True
 
@@ -576,7 +578,7 @@ class ChatEngine(KnowledgeEngine):
             for f_id, val in self.facts[f].items():
                 journey_data[f_id] = val
         try:
-            url, json = scraper_1.scrape(journey_data)
+            url, json = scraper.scrape(journey_data)
             print(url)
             if journey_data['returning']:
                 ticket_price = json['returnJsonFareBreakdowns']
@@ -598,12 +600,19 @@ class ChatEngine(KnowledgeEngine):
                         ticket[1]
                    )
             msg_booking = ("I have set up your booking with our preferred "
-                           "booking partner Chiltern Railways by Arriva! "
+                           "booking partner National Rail Enquiries! "
                            "Click below to go through to their site to confirm "
                            "your information and complete your booking.")
-            self.add_to_message_chain(msg, 1, req_response=False)
-            self.add_to_message_chain(msg_booking, 1,
-                                      suggestions=[{"BOOK:" + url}])
+            msg_final = ("Thanks for using AKOBot today! If I can be of "
+                         "anymore assistance, click the button below to start "
+                         "a new chat")
+            self.add_to_message_chain(msg, 0, req_response=False)
+            self.add_to_message_chain(msg_booking,
+                                      suggestions=[
+                                          "{BOOK:" + url + "}Book now &raquo;"
+                                      ])
+            self.add_to_message_chain(msg_final,
+                                      suggestions=["Start a new chat"])
         except StationNotFoundError as e:
             print("ERROR:", e)
             msg = ("Sorry, there are no available tickets between these "
