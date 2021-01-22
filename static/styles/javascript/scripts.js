@@ -1,4 +1,5 @@
 let tag_message = "";
+let urlCounter;
 
 let tag_req_map = {
     "DEP": "{FROM}",
@@ -13,7 +14,8 @@ let tag_req_map = {
 // When doc.ready
 $(function () {
 
-    sendInputData("", true)
+    urlCounter = 0;
+    sendInputData("", true);
 
     // Call AJAX to send message to back-end
     $('#message_form').submit(function (e) {
@@ -78,7 +80,7 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
             messageObject.write(output);
             changeUIFromTags(output.message, new Date().toTimeString().slice(0, 5));
             getControlTags(output.message);
-            //synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
+            synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
             if(messageObject.text.includes("Ok great, let's get your booking started!")){
                 $('main').css('width', 'calc(100% - 400px)');
                 $('.side-bar').css("transform", "scaleX(1)");
@@ -129,7 +131,17 @@ function writeMessage(message) {
             if(localthis.suggestions.length > 0) {
                 msgElement += `<div class="suggestions-container">`;
                 localthis.suggestions.forEach((suggestion) => {
-                    if(suggestion !== "Reload Page") {
+                    if(suggestion === "Reload Page" || suggestion === "Start a new chat") {
+                        msgElement += `<div class="suggestion"
+                                       onclick="window.location.reload()">
+                                  ${suggestion}</div>`
+                    }else if(suggestion.includes("{BOOK:")){
+                        let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '');
+                        let url = suggestion.replace("{BOOK:", "").replace("}", "");
+                        msgElement += `<div class="suggestion"
+                                       onclick="openURL('${url}');">
+                                  ${suggestionClean}</div>`
+                    }else{
                         // removes non-human readable portion of suggestions
                         let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '')
                         console.log(suggestionClean)
@@ -137,10 +149,6 @@ function writeMessage(message) {
                                        onclick="sendInputData('${suggestion}');
                                                 sendMessage('${suggestionClean}');">
                                   ${suggestionClean}</div>`
-                    }else{
-                        msgElement += `<div class="suggestion"
-                                       onclick="window.location.reload()">
-                                  ${suggestion}</div>`
                     }
                 });
                 msgElement += `</div>`;
@@ -259,4 +267,13 @@ function getNearestStations(latlng){
             }
         }
     )
+}
+
+function openURL(url) {
+  let tab = window.open(url, '_blank');
+  tab.focus();
+  if(urlCounter === 0){
+      sendInputData("POPMSG", false, "true");
+  }
+  urlCounter++;
 }

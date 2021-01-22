@@ -17,10 +17,10 @@ def scrape(journey_data):
 
     """
     if journey_data['returning']:
-        url_return = ""
+        url_return = "/{}/{}/dep"
         url_return = url_return.format(
-            journey_data['return_date'].strftime("%Y-%m-%d"),
-            journey_data['return_date'].strftime("%H:%M:00")
+            journey_data['return_date'].strftime("%d%m%Y"),
+            journey_data['return_date'].strftime("%H%M")
         )
         inbound_req = "true"
     else:
@@ -28,13 +28,11 @@ def scrape(journey_data):
         inbound_req = "false"
 
     url = ("https://ojp.nationalrail.co.uk/service/timesandfares/{}/{}" 
-          "/051220/1245/dep/061220/1345/dep")
+           "/{}/{}/dep{}")
     url = url.format(journey_data['depart'], journey_data['arrive'],
-                     journey_data['no_adults'].strip(),
-                     journey_data['no_children'].strip(),
-                     journey_data['departure_date'].strftime("%Y-%m-%d"),
-                     journey_data['departure_date'].strftime("%H:%M:00"),
-                     inbound_req, url_return, "")
+                     journey_data['departure_date'].strftime("%d%m%y"),
+                     journey_data['departure_date'].strftime("%H%M"),
+                     url_return)
 
     # Open the webpage
     webpage = urlopen(url)
@@ -60,4 +58,4 @@ def scrape(journey_data):
     # Turn json into dictionary
     json_cheap = json.loads(stripped_cheap_text)
 
-    return json_cheap
+    return url, json_cheap
