@@ -1,27 +1,13 @@
-import asyncio
 import json
-import time
+import re
 
-import pyppeteer
-from requests_html import HTMLSession, AsyncHTMLSession
 from bs4 import BeautifulSoup as soup
-
-
-async def get_webpage(url):
-    new_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(new_loop)
-    session = AsyncHTMLSession()
-    browser = await pyppeteer.launch({
-        'ignoreHTTPSErrors': True,
-        'headless': True,
-        'handleSIGINT': False,
-        'handleSIGTERM': False,
-        'handleSIGHUP': False
-    })
-    session._browser = browser
-    resp_page = await session.get(url)
-    await resp_page.html.arender(keep_page=True)
-    return resp_page
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 def scrape(journey_data):
@@ -37,41 +23,56 @@ def scrape(journey_data):
     """
 
     if journey_data['returning']:
-        url_return = "&inboundTime={}T{}&inboundTimeType=DEPARTURE"
+        url_return = "&inbound=true&inboundTime={}T{}&inboundTimeType=DEPARTURE"
         url_return = url_return.format(
             journey_data['return_date'].strftime("%Y-%m-%d"),
             journey_data['return_date'].strftime("%H:%M:00")
         )
-        inbound_req = "true"
     else:
         url_return = ""
-        inbound_req = "false"
 
     url = ("https://buy.chilternrailways.co.uk/search?origin=GB{}"
-           "&destination=GB{}&adults={}&children={}&outboundTime={}T{}"
-           "&outboundTimeType=DEPARTURE&inbound={}{}"
-           "&railcards=%5B{}%5D&ls=LS_1_0&ls=LS_2_9&p=PRICE_P_1_8"
-           "&p=PRICE_P_2_150")
+           "&destination=GB{}&outboundTime={}T{}"
+           "&outboundTimeType=DEPARTURE&adults={}&children={}{}"
+           "&railcards=%5B{}%5D")
     url = url.format(journey_data['depart'], journey_data['arrive'],
-                     journey_data['no_adults'].strip(),
-                     journey_data['no_children'].strip(),
                      journey_data['departure_date'].strftime("%Y-%m-%d"),
                      journey_data['departure_date'].strftime("%H:%M:00"),
-                     inbound_req, url_return, "")
+                     journey_data['no_adults'].strip(),
+                     journey_data['no_children'].strip(), url_return, "")
 
-    webpage = asyncio.run(get_webpage(url))
-    print(webpage.page)
-    html = webpage.text
+    opts = webdriver.ChromeOptions()
+    opts.add_argument("--window-size=1920,1080")
+    browser = webdriver.Chrome(ChromeDriverManager().install(), options=opts)
+    print(url)
+    browser.get(url)
+    html = ""
+
+    try:
+        WebDriverWait(browser, 20).until(
+            EC.presence_of_element_located((By.ID, 'mixing-deck'))
+        )
+        html = browser.page_source
+    except TimeoutException:
+        print("Couldn't load expected element - TIMEOUT")
+    finally:
+        browser.quit()
+
     page_scrape = soup(html, "html.parser")
     print(page_scrape)
-    cheap_elements = page_scrape.find(
-        "div", {"class": "price-table__cell-content--selectedOut"}
+    cheapest_price_html = page_scrape.find(
+        "span", {"class": "basket-summary__total--value"}
     )
-    print(cheap_elements)
-    cheap_script = cheap_elements.find('script').contents
-    stripped_cheap_text = str(cheap_script).strip("'<>() ").replace(
-        '\'', '\"').replace('\00', '').replace('["\\n\\t\\t\\t', "").replace(
-        '\\n\\t\\t"]', "")
+    from_station_html = page_scrape.find(
+        "span", {"data-elid": "from-station"}
+    )
+    to_station_html = page_scrape.find(
+        "span", {"data-elid": "to-station"}
+    )
 
-    # Turn json into dictionary        
-    return [url, json.loads(stripped_cheap_text)]
+    cheapest_total_price = re.search('>(.*)<',
+                                     str(cheapest_price_html)).group(1)
+    from_station = re.search('>(.*)<', str(from_station_html)).group(1)
+    to_station = re.search('>(.*)<', str(to_station_html)).group(1)
+
+    return [url, [cheapest_total_price, from_station, to_station]]

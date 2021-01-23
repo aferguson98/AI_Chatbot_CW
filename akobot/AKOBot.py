@@ -4,6 +4,8 @@ AKOBot.py
 
 import spacy
 
+from Database.DatabaseConnector import DBConnection
+
 
 class NLPEngine:
     def __init__(self):
@@ -28,6 +30,20 @@ class NLPEngine:
             A list of tokens
         """
         return self.nlp(input_text)
+
+
+def get_all_stations():
+    query = "SELECT * FROM main.Stations"
+    db_connection = DBConnection('AKODatabase.db')
+    result = db_connection.send_query(query).fetchall()
+    if result:
+        stations = []
+        for res in result:
+            stations.append(res[0])
+            stations.append(res[1])
+        return stations
+    else:
+        return "error_error_error"
 
 
 if __name__ == '__main__':

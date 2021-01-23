@@ -140,7 +140,7 @@ function writeMessage(message) {
                                   ${suggestion}</div>`
                     }else if(suggestion.includes("{BOOK:")){
                         let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '');
-                        let url = suggestion.replace("{BOOK:", "").replace("}", "");
+                        let url = suggestion.replace("{BOOK:", "").split("}")[0];
                         msgElement += `<div class="suggestion"
                                        onclick="openURL('${url}');">
                                   ${suggestionClean}</div>`
@@ -293,7 +293,7 @@ function completeDelayPrediction(msg){
                     && complete_journey.includes("DLY")) {
             if (!executed){
                 executed = true;
-                sendInputData("anything");
-            };
-        };
+                sendInputData("RUN_ENGINE");
+            }
+        }
 }
