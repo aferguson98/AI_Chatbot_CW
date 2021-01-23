@@ -30,10 +30,10 @@ TokenDictionary = {
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
     "dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
-                 {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+                 {"POS": "ADP", "OP": "+"}, {"SHAPE": "dd:dd"}], # tomorrow at 15:30 // 24 January 2021 at 15:30
     "other_dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
-                    {"POS": "ADP"}, {"ENT_TYPE": "TIME", "OP": "+"},
-                    {"POS": "ADP", "OP": "?"},{"ENT_TYPE": "TIME", "OP": "?"}],
+                    {"POS": "ADP"}, {"ENT_TYPE": "TIME", "OP": "?"},
+                    {"POS": "ADP", "OP": "?"},{"SHAPE": "dd:dd"}], # tomorrow 15:30
                     # add another ent_type : DATE without OP : +
     "ret_date": [{"LEMMA": {"IN": ["return", "returning"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
@@ -290,7 +290,7 @@ class ChatEngine(KnowledgeEngine):
             sgl = self.get_matches(doc, TokenDictionary['single'])
         if ret is not None and sgl is None:
             tags += "{RET:RETURN}"
-            self.declare(Fact(returning="True"))
+            self.declare(Fact(returning=True))
             self.booking_progress = self.booking_progress.replace("rs_", "")
         elif sgl is not None and ret is None:
             tags += "{RET:SINGLE}{RTM:N/A}"
@@ -306,10 +306,7 @@ class ChatEngine(KnowledgeEngine):
         return tags, extra_info_appropriate
 
     def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP", extra_info_appropriate = True):
-        print(doc)
-        for d in doc:
-            print(d)
-            print(d.ent_type_)
+
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
             print("DTEEEEEE==========", dte)
@@ -346,13 +343,11 @@ class ChatEngine(KnowledgeEngine):
         if dte is not None:
             if st_type != "DLY":
                 date_time = get_date_from_text(str(dte[2:]))
-
             if st_type == "DEP":
-                
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
-            else:
+            elif st_type =="ARR":
                 self.declare(Fact(return_date=date_time))
                 tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("rt_", "")
@@ -500,7 +495,7 @@ class ChatEngine(KnowledgeEngine):
           salience=97)
     def ask_for_departure_date(self):
         """Decides if need to ask user for the arrival point"""
-        self.add_to_message_chain("{REQ:DDT}When do you want to depart? (Date AT time)",
+        self.add_to_message_chain("{REQ:DDT}When do you want to depart? (Date and time)",
                                   1)
         self.declare(Fact(extra_info_requested=True))
 
@@ -716,6 +711,8 @@ class ChatEngine(KnowledgeEngine):
         pr = Predictions()
         delay_prediction = pr.display_results(journey_data['depart'], journey_data['arrive'], dep_time[0])
         self.add_to_message_chain(delay_prediction, priority=0)
+        self.declare(Fact(can_produce_ending=True))
+        
 
     # HELP ACTIONS
 
