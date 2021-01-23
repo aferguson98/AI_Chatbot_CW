@@ -3,6 +3,7 @@ Reasoner.py
 
 Contains classes related to reasoning
 """
+import re
 from difflib import SequenceMatcher
 
 from dateparser.date import DateDataParser
@@ -11,8 +12,9 @@ from spacy.matcher import Matcher
 
 from Database.DatabaseConnector import DBConnection
 from akobot import StationNoMatchError, StationNotFoundError, \
-    UnknownPriorityException, UnknownStationTypeException, scraper
-from akobot.AKOBot import NLPEngine
+    UnknownPriorityException, UnknownStationTypeException, scraper, scraper_1
+from akobot.AKOBot import NLPEngine, get_all_stations
+from DelayPrediction.Prediction import Predictions
 
 TokenDictionary = {
     "book": [{"LEMMA": {"IN": ["book", "booking", "purchase", "buy"]}}],
@@ -22,18 +24,32 @@ TokenDictionary = {
     "no": [{"LOWER": {"IN": ["no", "nope", "n", "nah", "na", "👎"]}}],
     "depart": [{"POS": "ADP", "LEMMA": {"IN": ["depart", "from", "departing"]}},
                {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
+    "depart_station":
+        [{"POS": "ADP", "LEMMA": {"IN": ["depart", "from", "departing"]}},
+         {"LOWER": {"IN": get_all_stations()}}],
     "arrive": [{"POS": "ADP", "LEMMA": {"IN": ["arrive", "to", "arriving"]}},
                {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
+    "arrive_station":
+        [{"POS": "ADP", "LEMMA": {"IN": ["arrive", "to", "arriving"]}},
+         {"LOWER": {"IN": get_all_stations()}}],
     "return": [{"LEMMA": {"IN": ["return", "returning"]}}],
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
     "dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
-                 {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
+                 {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "?"},
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "?"},
                  {"ENT_TYPE": "TIME", "DEP": "pobj"}],
+    "dep_date_2": [{"LEMMA": {"IN": ["depart", "departing",
+                                     "leave", "leaving"]}},
+                   {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
+                   {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
     "ret_date": [{"LEMMA": {"IN": ["return", "returning"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
-                 {"ENT_TYPE": "TIME", "DEP": "pobj"}]
+                 {"ENT_TYPE": "TIME", "DEP": "pobj"}],
+    "ret_date_2": [{"LEMMA": {"IN": ["depart", "departing",
+                                     "leave", "leaving"]}},
+                   {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
+                   {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
 }
 
 
@@ -68,7 +84,6 @@ def get_date_from_text(date_text):
     date_text = date_text.replace(" AM", "am")
     date_text = date_text.replace(" pm", "pm")
     date_text = date_text.replace(" PM", "pm")
-    print("DATE", date_text)
     ddp = DateDataParser(languages=['en'])
     return ddp.get_date_data(date_text).date_obj
 
@@ -84,6 +99,7 @@ class ChatEngine(KnowledgeEngine):
         # Knowledge dict
         self.knowledge = {}
         self.booking_progress = "dl_dt_al_rt_rs_na_nc_"
+        self.delay_progress = "dl_dt_al_"
 
         # User Interface output
         self.def_message = {"message": "I'm sorry. I don't know how to help "
@@ -144,6 +160,7 @@ class ChatEngine(KnowledgeEngine):
                  " COLLATE NOCASE")
         result = self.db_connection.send_query(query,
                                                (search_station,)).fetchall()
+
         if result:
             return result[0]
         else:
@@ -152,7 +169,7 @@ class ChatEngine(KnowledgeEngine):
                      "COLLATE NOCASE")
             result = self.db_connection.send_query(query,
                                                    (search_station,)
-                                                  ).fetchall()
+                                                   ).fetchall()
             if result and len(result) == 1:
                 return result[0]
             else:
@@ -171,7 +188,8 @@ class ChatEngine(KnowledgeEngine):
                     raise StationNotFoundError(msg.format(search_station))
 
     def get_dep_arr_station(self, doc, message_text, tags, st_type="DEP",
-                            extra_info_appropriate=True):
+                            extra_info_appropriate=True,
+                            must_search_station=True):
         """
         Get the arrival or departure station from the message_text and return
         the relevant tags and if extra info can be asked for
@@ -194,6 +212,9 @@ class ChatEngine(KnowledgeEngine):
             True if the user can be asked for extra information or False if it's
             not appropriate
             default: True
+        must_search_station: bool
+            True by default, false when used for delay prediction. Reusing the
+            method for departure/arrival station, but keeping the station name
         Returns
         -------
         list of str
@@ -224,18 +245,34 @@ class ChatEngine(KnowledgeEngine):
         matches = self.get_matches(doc, TokenDictionary[token])
         if matches is not None:
             search_station = str(matches[1:])
-        elif "{TAG:" + st_type + "}" in message_text:
-            search_station = message_text.replace("{TAG:" + st_type + "}", "")
+        else:
+            matches = self.get_matches(doc, TokenDictionary[token])
+            if matches is not None:
+                search_station = str(matches[1:])
+            elif "{TAG:" + st_type + "}" in message_text:
+                search_station = message_text.replace("{TAG:" + st_type + "}",
+                                                      "")
 
         if search_station:
             try:
                 station = self.find_station(search_station)
                 tags += "{" + st_type + ":" + station[1] + "}"
                 if st_type == "DEP":
-                    self.declare(Fact(depart=station[0]))
+                    if must_search_station:
+                        self.declare(Fact(depart=station[0]))
+                    else:
+                        self.declare(Fact(depart=station[1]))
                 else:
-                    self.declare(Fact(arrive=station[0]))
-                self.booking_progress = self.booking_progress.replace(progress_tag, "")
+                    if must_search_station:
+                        self.declare(Fact(arrive=station[0]))
+                    else:
+                        self.declare(Fact(arrive=station[1]))
+                if must_search_station:
+                    self.booking_progress = self.booking_progress.replace(
+                        progress_tag, "")
+                else:
+                    self.delay_progress = self.delay_progress.replace(
+                        progress_tag, "")
             except StationNoMatchError as e:
                 extra_info_appropriate = False
                 self.add_to_message_chain(
@@ -264,11 +301,11 @@ class ChatEngine(KnowledgeEngine):
             sgl = self.get_matches(doc, TokenDictionary['single'])
         if ret is not None and sgl is None:
             tags += "{RET:RETURN}"
-            self.declare(Fact(returning="True"))
+            self.declare(Fact(returning=True))
             self.booking_progress = self.booking_progress.replace("rs_", "")
         elif sgl is not None and ret is None:
             tags += "{RET:SINGLE}{RTM:N/A}"
-            self.declare(Fact(returning="False"))
+            self.declare(Fact(returning=False))
             self.booking_progress = self.booking_progress.replace("rs_", "")
             self.booking_progress = self.booking_progress.replace("rt_", "")
         elif sgl is not None and ret is not None:
@@ -279,28 +316,56 @@ class ChatEngine(KnowledgeEngine):
             extra_info_appropriate = False
         return tags, extra_info_appropriate
 
-    def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP"):
-        print(doc)
+    def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP",
+                         extra_info_appropriate=True):
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
+            if dte is None:
+                dte = self.get_matches(doc, TokenDictionary['dep_date_2'])
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
-            print(dte)
+            if dte is None:
+                dte = self.get_matches(doc, TokenDictionary['ret_date_2'])
+        elif st_type == "DLY":
+            dte = None
+            if "departing at" in message_text:
+                if re.search('\d{2}:\d{2}$', message_text):
+                    correct_string = (re.search('\d{2}:\d{2}$',
+                                                message_text)[0]).split(":")
+                    if (0 <= int(correct_string[0]) < 24 and
+                            0 <= int(correct_string[1]) < 60):
+                        dte = doc
+                        if dte is not None:
+                            self.declare(Fact(departure_date=dte))
+                            tags += "{DLY:" + str(dte) + "}"
+                            self.delay_progress = self.delay_progress.replace(
+                                "dt_", ""
+                            )
+                    else:
+                        self.add_to_message_chain("{REQ:DDT}Please enter valid"
+                                                  " time - 00:00 - 23:59")
+                        extra_info_appropriate = False
+                else:
+                    self.add_to_message_chain("{REQ:DDT}Please enter time"
+                                              " in the HH:MM format.")
+                    extra_info_appropriate = False
+            if "departing at" in message_text:
+                dte = doc
         else:
             raise UnknownStationTypeException(st_type)
 
         if dte is not None:
-            date_time = get_date_from_text(str(dte[2:]))
+            if st_type != "DLY":
+                date_time = get_date_from_text(str(dte[2:]))
             if st_type == "DEP":
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
             else:
-                print(date_time)
                 self.declare(Fact(return_date=date_time))
                 tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("rt_", "")
-        return tags
+        return tags, extra_info_appropriate
 
     @DefFacts()
     def _initial_action(self):
@@ -330,6 +395,7 @@ class ChatEngine(KnowledgeEngine):
             The message text passed by the user to the Chat class
         """
         doc = self.nlp_engine.process(message_text)
+
         matcher = Matcher(self.nlp_engine.nlp.vocab)
         matcher.add("BOOKING_PATTERN", None, TokenDictionary['book'])
         matches = matcher(doc)
@@ -382,6 +448,8 @@ class ChatEngine(KnowledgeEngine):
             The message text passed by the user to the Chat class
         """
         doc = self.nlp_engine.process(message_text)
+        print([d.shape_ for d in doc])
+        print([d.ent_type_ for d in doc])
         tags = ""
         extra_info_appropriate = True
 
@@ -397,7 +465,7 @@ class ChatEngine(KnowledgeEngine):
         )
 
         for st_type in ["DEP", "RET"]:
-            tags = self.get_dep_arr_date(
+            tags, extra_info_appropriate = self.get_dep_arr_date(
                 doc, message_text, tags, st_type
             )
 
@@ -441,7 +509,8 @@ class ChatEngine(KnowledgeEngine):
           salience=97)
     def ask_for_departure_date(self):
         """Decides if need to ask user for the arrival point"""
-        self.add_to_message_chain("{REQ:DDT}When do you want to depart?",
+        self.add_to_message_chain("{REQ:DDT}When do you want to depart? "
+                                  "(Date AT time)",
                                   1)
         self.declare(Fact(extra_info_requested=True))
 
@@ -469,7 +538,7 @@ class ChatEngine(KnowledgeEngine):
 
     @Rule(Fact(action="book"),
           Fact(extra_info_req=True),
-          NOT(Fact(returning=False)),
+          Fact(returning=True),
           NOT(Fact(extra_info_requested=True)),
           NOT(Fact(return_date=W())),
           salience=94)
@@ -519,34 +588,33 @@ class ChatEngine(KnowledgeEngine):
             for f_id, val in self.facts[f].items():
                 journey_data[f_id] = val
         try:
-            url, json = scraper.scrape(journey_data)
-            print(url)
             if journey_data['returning']:
-                ticket_price = json['returnJsonFareBreakdowns']
-                print(len(ticket_price))
-                if len(ticket_price) == 0:
-                    ticket_price = json['singleJsonFareBreakdowns'][0]
-                    ticket_price = float(ticket_price['ticketPrice']) * 2
-                else:
-                    ticket_price = ticket_price[0]['ticketPrice']
-                ticket = ["return", ticket_price]
+                ticket_type = "return"
             else:
-                ticket = ["return",
-                          json['singleJsonFareBreakdowns'][0]['ticketPrice']]
+                ticket_type = "single"
+            url, ticket_data = scraper_1.scrape(journey_data)
+            print(url, ticket_data)
             msg = ("Great, I've got all I need. The best fare for a {} ticket "
-                   "between {} and {} is £{:.2f}").format(
-                        ticket[0],
-                        json['jsonJourneyBreakdown']['departureStationName'],
-                        json['jsonJourneyBreakdown']['arrivalStationName'],
-                        ticket[1]
-                   )
+                   "between {} and {} is {}").format(
+                ticket_type,
+                ticket_data[1],
+                ticket_data[2],
+                ticket_data[0]
+            )
             msg_booking = ("I have set up your booking with our preferred "
                            "booking partner Chiltern Railways by Arriva! "
                            "Click below to go through to their site to confirm "
                            "your information and complete your booking.")
-            self.add_to_message_chain(msg, 1, req_response=False)
-            self.add_to_message_chain(msg_booking, 1,
-                                      suggestions=[{"BOOK:" + url}])
+            msg_final = ("Thanks for using AKOBot today! If I can be of "
+                         "anymore assistance, click the button below to start "
+                         "a new chat")
+            self.add_to_message_chain(msg, 0, req_response=False)
+            self.add_to_message_chain(msg_booking,
+                                      suggestions=[
+                                          "{BOOK:" + url + "}Book now &raquo;"
+                                      ])
+            self.add_to_message_chain(msg_final,
+                                      suggestions=["Start a new chat"])
         except StationNotFoundError as e:
             print("ERROR:", e)
             msg = ("Sorry, there are no available tickets between these "
@@ -555,6 +623,104 @@ class ChatEngine(KnowledgeEngine):
             self.add_to_message_chain(msg, 1)
 
     # DELAY ACTIONS
+    @Rule(Fact(action="delay"),
+          AS.f1 << Fact(complete=False),
+          AS.f2 << Fact(extra_info_req=False),
+          Fact(message_text=MATCH.message_text),
+          salience=99)
+    def delay_not_complete(self, f1, f2, message_text):
+        """
+        If delay prediction model doesn't have enough information to be called,
+        check if any more information has been provided.
+                
+        Parameters
+        ----------
+        f1: Fact
+            The Fact representing whether the booking is complete or not
+
+        f2: Fact
+            The Fact representing whether the bot needs to request extra info
+            to complete this booking
+
+        message_text: str
+            The message text passed by the user to the Chat class
+        """
+        doc = self.nlp_engine.process(message_text)
+        tags = ""
+        extra_info_appropriate = True
+
+        if len(self.delay_progress) == 0:
+            self.modify(f1, complete=True)
+
+        for st_type in ["DEP", "ARR"]:
+            tags, extra_info_appropriate = self.get_dep_arr_station(
+                doc, message_text, tags, st_type, extra_info_appropriate, False
+            )
+
+        for st_type in ["DLY"]:
+            tags, extra_info_appropriate = self.get_dep_arr_date(
+                doc, message_text, tags, st_type, extra_info_appropriate
+            )
+
+        self.add_to_message_chain(tags, priority=7)
+        print(self.delay_progress)
+        if len(self.delay_progress) != 0 and extra_info_appropriate:
+            self.modify(f2, extra_info_req=True)
+        elif len(self.delay_progress) == 0:
+            # self.modify(f1, complete=True)
+            self.add_to_message_chain("Thanks, I can now predict your arrival. "
+                                      "This shouldn't take longer than 10 "
+                                      "seconds. Please hold on....")
+
+    @Rule(Fact(action="delay"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(depart=W())),
+          salience=98)
+    def departure_delay(self):
+        """Decides if need to ask user for the departure point"""
+        self.add_to_message_chain("{REQ:DEP}Where are you travelling from?",
+                                  1)
+        self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="delay"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(arrive=W())),
+          salience=97)
+    def arrival_delay(self):
+        """Decides if need to ask user for the arrival point"""
+        self.add_to_message_chain("{REQ:ARR}Where are you travelling to?",
+                                  1)
+        self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="delay"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(departure_date=W())),
+          salience=96)
+    def departure_time_delay(self):
+        """Decides if need to ask user for the arrival point"""
+        self.add_to_message_chain("{REQ:DDT}What time did you actually depart "
+                                  "the station?",
+                                  1)
+        self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="delay"),
+          Fact(complete=True),
+          salience=94)
+    def predict_delay(self):
+        journey_data = {}
+        for f in self.facts:
+            for f_id, val in self.facts[f].items():
+                journey_data[f_id] = val
+        dep_time = re.search('\d{2}:\d{2}$',
+                             str(journey_data['departure_date']))
+        pr = Predictions()
+        delay_prediction = pr.display_results(journey_data['depart'],
+                                              journey_data['arrive'],
+                                              dep_time[0])
+        self.add_to_message_chain(delay_prediction, priority=0)
 
     # HELP ACTIONS
 

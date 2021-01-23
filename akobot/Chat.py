@@ -14,8 +14,8 @@ def convert_tags_to_nlp_text(message):
         # this control sequence needs to be passed directly to nlp
         return message
     # need to replace tag with text to be useful for nlp
-    message = message.replace("{FROM}", "from")
-    message = message.replace("{TO}", "to")
+    message = message.replace("{FROM}", "departing from")
+    message = message.replace("{TO}", "arriving to")
     message = message.replace("{TAG:DAT}", "departing at")
     message = message.replace("{TAG:RAT}", "returning at")
 

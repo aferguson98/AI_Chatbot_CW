@@ -1,5 +1,7 @@
 let tag_message = "";
-
+let urlCounter;
+let complete_journey = []
+let executed = false;
 let tag_req_map = {
     "DEP": "{FROM}",
     "ARR": "{TO}",
@@ -13,7 +15,8 @@ let tag_req_map = {
 // When doc.ready
 $(function () {
 
-    sendInputData("", true)
+    urlCounter = 0;
+    sendInputData("", true);
 
     // Call AJAX to send message to back-end
     $('#message_form').submit(function (e) {
@@ -64,6 +67,7 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
         side: 'left',
         suggestions: []
     });
+    
     // request to the backend
     $.ajax({
         type: 'POST',
@@ -77,8 +81,9 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
             messageObject.response_req = output.response_req;
             messageObject.write(output);
             changeUIFromTags(output.message, new Date().toTimeString().slice(0, 5));
+            completeDelayPrediction(output.message);
             getControlTags(output.message);
-            //synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
+            synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
             if(messageObject.text.includes("Ok great, let's get your booking started!")){
                 $('main').css('width', 'calc(100% - 400px)');
                 $('.side-bar').css("transform", "scaleX(1)");
@@ -129,7 +134,17 @@ function writeMessage(message) {
             if(localthis.suggestions.length > 0) {
                 msgElement += `<div class="suggestions-container">`;
                 localthis.suggestions.forEach((suggestion) => {
-                    if(suggestion !== "Reload Page") {
+                    if(suggestion === "Reload Page" || suggestion === "Start a new chat") {
+                        msgElement += `<div class="suggestion"
+                                       onclick="window.location.reload()">
+                                  ${suggestion}</div>`
+                    }else if(suggestion.includes("{BOOK:")){
+                        let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '');
+                        let url = suggestion.replace("{BOOK:", "").split("}")[0];
+                        msgElement += `<div class="suggestion"
+                                       onclick="openURL('${url}');">
+                                  ${suggestionClean}</div>`
+                    }else{
                         // removes non-human readable portion of suggestions
                         let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '')
                         console.log(suggestionClean)
@@ -137,10 +152,6 @@ function writeMessage(message) {
                                        onclick="sendInputData('${suggestion}');
                                                 sendMessage('${suggestionClean}');">
                                   ${suggestionClean}</div>`
-                    }else{
-                        msgElement += `<div class="suggestion"
-                                       onclick="window.location.reload()">
-                                  ${suggestion}</div>`
                     }
                 });
                 msgElement += `</div>`;
@@ -259,4 +270,30 @@ function getNearestStations(latlng){
             }
         }
     )
+}
+
+function openURL(url) {
+  let tab = window.open(url, '_blank');
+  tab.focus();
+  if(urlCounter === 0){
+      sendInputData("POPMSG", false, "true");
+  }
+  urlCounter++;
+}
+
+function completeDelayPrediction(msg){
+    let regex = new RegExp('{([^}]+)}', 'g');
+    let results = [...msg.matchAll(regex)];
+    results.forEach(function(element){
+        let tagArr = element[1].split(":");
+        let tag = tagArr[0]
+        complete_journey.push(tag)
+    });
+    if (complete_journey.includes("DEP") && complete_journey.includes("ARR") 
+                    && complete_journey.includes("DLY")) {
+            if (!executed){
+                executed = true;
+                sendInputData("RUN_ENGINE");
+            }
+        }
 }

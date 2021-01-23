@@ -55,6 +55,7 @@ def process_user_input():
         response = message[0]
         suggestions = message[1]
         response_req = message[2]
+    print(response, suggestions, response_req)
     return jsonify({"message": response,
                     "suggestions": suggestions,
                     "response_req": response_req})
