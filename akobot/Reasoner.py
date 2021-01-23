@@ -36,8 +36,8 @@ TokenDictionary = {
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
     "dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
-                 {"POS": "ADP", "OP": "+"}, {"SHAPE": "dd:dd"}], # tomorrow at 15:30 // 24 January 2021 at 15:30
-    "other_dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+                 {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}], # tomorrow at 15:30 // 24 January 2021 at 15:30 // 24-01-2021 15:30
+    "dep_date_2": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
                     {"POS": "ADP"}, {"ENT_TYPE": "TIME", "OP": "?"},
                     {"POS": "ADP", "OP": "?"},{"SHAPE": "dd:dd"}], # tomorrow 15:30
                     # add another ent_type : DATE without OP : +
@@ -45,8 +45,7 @@ TokenDictionary = {
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
                  {"ENT_TYPE": "TIME", "DEP": "pobj"}],
-    "ret_date_2": [{"LEMMA": {"IN": ["depart", "departing",
-                                     "leave", "leaving"]}},
+    "ret_date_2": [{"LEMMA": {"IN": ["return", "returning"]}},
                    {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
                    {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
 }
@@ -186,7 +185,7 @@ class ChatEngine(KnowledgeEngine):
                     msg = "Unable to find station {}"
                     raise StationNotFoundError(msg.format(search_station))
 
-    def get_dep_arr_station(self, doc, message_text, tags, st_type="DEP",
+    def get_dep_arr_station(self, doc, message_text, tags, st_type,
                             extra_info_appropriate=True,
                             must_search_station=True):
         """
@@ -245,10 +244,7 @@ class ChatEngine(KnowledgeEngine):
         if matches is not None:
             search_station = str(matches[1:])
         else:
-            matches = self.get_matches(doc, TokenDictionary[token])
-            if matches is not None:
-                search_station = str(matches[1:])
-            elif "{TAG:" + st_type + "}" in message_text:
+            if "{TAG:" + st_type + "}" in message_text:
                 search_station = message_text.replace("{TAG:" + st_type + "}",
                                                       "")
 
@@ -319,12 +315,16 @@ class ChatEngine(KnowledgeEngine):
                          extra_info_appropriate=True):
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
+            print("DEP date(1)>>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['dep_date_2'])
+                print("RET date(2)>>>>", dte)
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
+            print("RET date(1)>>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['ret_date_2'])
+                print("RET date(2)>>>>", dte)
         elif st_type == "DLY":
             dte = None
             if "departing at" in message_text:
@@ -360,10 +360,11 @@ class ChatEngine(KnowledgeEngine):
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
-            elif st_type =="ARR":
+            elif st_type =="RET":
                 self.declare(Fact(return_date=date_time))
                 tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("rt_", "")
+
         return tags, extra_info_appropriate
 
     @DefFacts()
@@ -452,7 +453,9 @@ class ChatEngine(KnowledgeEngine):
         tags = ""
         extra_info_appropriate = True
 
-        print(len(self.booking_progress), self.booking_progress)
+        if len(self.booking_progress) == 0:
+            self.modify(f1, complete=True)
+            self.booking_progress="ENGINE"
 
         for st_type in ["DEP", "ARR"]:
             tags, extra_info_appropriate = self.get_dep_arr_station(
@@ -465,7 +468,7 @@ class ChatEngine(KnowledgeEngine):
 
         for st_type in ["DEP", "RET"]:
             tags, extra_info_appropriate = self.get_dep_arr_date(
-                doc, message_text, tags, st_type
+                doc, message_text, tags, st_type, extra_info_appropriate
             )
 
         if "{TAG:ADT}" in message_text:
@@ -487,7 +490,10 @@ class ChatEngine(KnowledgeEngine):
         if len(self.booking_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.booking_progress) == 0:
-            self.modify(f1, complete=True)
+            self.add_to_message_chain("{COMP:True}Thanks. Now I have all I need to produce a ticket. "
+                        "A new window will appear, to select cheapest prices. "
+                        "This shouldn't take longer than 10 seconds. "
+                        "Please hold on....")
 
     # # Request Extra Info # #
     @Rule(Fact(action="book"),
@@ -542,7 +548,7 @@ class ChatEngine(KnowledgeEngine):
           salience=94)
     def ask_for_return_date(self):
         """Decides if need to ask user whether they're returning"""
-        self.add_to_message_chain("{REQ:RTD}And when are you returning?", 1)
+        self.add_to_message_chain("{REQ:RTD}And when are you returning? (Date and time)", 1)
         self.declare(Fact(extra_info_requested=True))
 
     @Rule(Fact(action="book"),
@@ -570,11 +576,11 @@ class ChatEngine(KnowledgeEngine):
         """Decides if need to ask user for number of children"""
         self.add_to_message_chain("{REQ:CHD}How many children (under 16) will "
                                   "be travelling?", 1,
-                                  suggestions=["{TAG:CHD}1", "{TAG:CHD}2",
-                                               "{TAG:CHD}3", "{TAG:CHD}4",
-                                               "{TAG:CHD}5", "{TAG:CHD}6",
-                                               "{TAG:CHD}7", "{TAG:CHD}8",
-                                               "{TAG:CHD}9", "{TAG:CHD}10"])
+                                  suggestions=["{TAG:CHD}0", "{TAG:CHD}1",
+                                               "{TAG:CHD}2", "{TAG:CHD}3",
+                                               "{TAG:CHD}4", "{TAG:CHD}5",
+                                               "{TAG:CHD}6", "{TAG:CHD}7",
+                                               "{TAG:CHD}8", "{TAG:CHD}9"])
         self.declare(Fact(extra_info_requested=True))
 
     @Rule(Fact(action="book"),
@@ -590,9 +596,10 @@ class ChatEngine(KnowledgeEngine):
                 ticket_type = "return"
             else:
                 ticket_type = "single"
+            print("SCRAPING ZE UEBSAIT")
             url, ticket_data = scraper_1.scrape(journey_data)
             print(url, ticket_data)
-            msg = ("Great, I've got all I need. The best fare for a {} ticket "
+            msg = ("The best fare for a {} ticket "
                    "between {} and {} is {}").format(
                 ticket_type,
                 ticket_data[1],
@@ -606,7 +613,7 @@ class ChatEngine(KnowledgeEngine):
             msg_final = ("Thanks for using AKOBot today! If I can be of "
                          "anymore assistance, click the button below to start "
                          "a new chat")
-            self.add_to_message_chain(msg, 0, req_response=False)
+            self.add_to_message_chain(msg, 1, req_response=False)
             self.add_to_message_chain(msg_booking,
                                       suggestions=[
                                           "{BOOK:" + url + "}Book now &raquo;"
