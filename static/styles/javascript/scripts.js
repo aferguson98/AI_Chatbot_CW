@@ -2,6 +2,7 @@ let tag_message = "";
 let urlCounter;
 let complete_journey = []
 let executed = false;
+let complete = false;
 let tag_req_map = {
     "DEP": "{FROM}",
     "ARR": "{TO}",
@@ -199,6 +200,7 @@ function changeUIFromTags(messageText, updatedTime){
     results.forEach(function(element){
         let tagArr = element[1].split(":");
         let tag = tagArr[0], value = tagArr[1];
+        console.log(value)
         switch (tag){
             case 'DEP':
                 updateTicketField('from', value, updatedTime)
@@ -220,6 +222,11 @@ function changeUIFromTags(messageText, updatedTime){
                 break;
             case 'CHD':
                 updateTicketField('child', value, updatedTime)
+                break;
+            case 'COMP':
+                console.log("RUNNING ENGINE!!!");
+                sendInputData("RUN_ENGINE");
+                complete = true;
                 break;
             default:
                 break;
