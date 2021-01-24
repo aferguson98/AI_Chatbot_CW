@@ -148,7 +148,7 @@ function writeMessage(message) {
                     }else{
                         // removes non-human readable portion of suggestions
                         let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '')
-                        console.log(suggestionClean)
+                        
                         msgElement += `<div class="suggestion" 
                                        onclick="sendInputData('${suggestion}');
                                                 sendMessage('${suggestionClean}');">
@@ -194,13 +194,12 @@ function updateTicketField(tag, value, time){
 }
 
 function changeUIFromTags(messageText, updatedTime){
-    console.log(messageText)
     let regex = new RegExp('{([^}]+)}', 'g');
     let results = [...messageText.matchAll(regex)]
     results.forEach(function(element){
         let tagArr = element[1].split(":");
         let tag = tagArr[0], value = tagArr[1];
-        console.log(value)
+        
         switch (tag){
             case 'DEP':
                 updateTicketField('from', value, updatedTime)
@@ -224,7 +223,6 @@ function changeUIFromTags(messageText, updatedTime){
                 updateTicketField('child', value, updatedTime)
                 break;
             case 'COMP':
-                console.log("RUNNING ENGINE!!!");
                 sendInputData("RUN_ENGINE");
                 complete = true;
                 break;
@@ -243,7 +241,7 @@ function getControlTags(messageText){
         switch (tag){
             case 'REQ':
                 //The Reasoner has made a request of the user - the following message will need the matching tag code
-                console.log(value)
+                
                 tag_message += tag_req_map[value];
                 break;
             default:

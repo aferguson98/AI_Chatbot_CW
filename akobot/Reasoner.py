@@ -42,12 +42,13 @@ TokenDictionary = {
                     {"POS": "ADP", "OP": "?"},{"SHAPE": "dd:dd"}], # tomorrow 15:30
                     # add another ent_type : DATE without OP : +
     "ret_date": [{"LEMMA": {"IN": ["return", "returning"]}},
-                 {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
+                 {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "?"},
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
-                 {"ENT_TYPE": "TIME", "DEP": "pobj"}],
+                 {"ENT_TYPE": "TIME", "DEP": "pobj"}], # tomorrow at 20:20; 
     "ret_date_2": [{"LEMMA": {"IN": ["return", "returning"]}},
                    {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
-                   {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+                   {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}], # 25 January at 20:20; 25/01/2021 20:30
+
 }
 
 
@@ -220,6 +221,8 @@ class ChatEngine(KnowledgeEngine):
         bool
             True if extra info can be asked for from the user and false if not
         """
+
+        print("User input doc>>224>>", doc)
         if st_type == "DEP":
             # Departure Station
             found_mul_msg = ("I found a few departure stations that matched {}."
@@ -315,16 +318,16 @@ class ChatEngine(KnowledgeEngine):
                          extra_info_appropriate=True):
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
-            print("DEP date(1)>>>", dte)
+            print("DEP date(1)>>321>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['dep_date_2'])
-                print("RET date(2)>>>>", dte)
+                print("DEP date(2)>>324>>", dte)
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
-            print("RET date(1)>>>", dte)
+            print("RET date(1)>>327>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['ret_date_2'])
-                print("RET date(2)>>>>", dte)
+                print("RET date(2)>>330>>", dte)
         elif st_type == "DLY":
             dte = None
             if "departing at" in message_text:
@@ -448,8 +451,6 @@ class ChatEngine(KnowledgeEngine):
             The message text passed by the user to the Chat class
         """
         doc = self.nlp_engine.process(message_text)
-        print([d.shape_ for d in doc])
-        print([d.ent_type_ for d in doc])
         tags = ""
         extra_info_appropriate = True
 
@@ -484,8 +485,6 @@ class ChatEngine(KnowledgeEngine):
             self.booking_progress = self.booking_progress.replace("nc_", "")
 
         self.add_to_message_chain(tags, priority=7)
-
-        print(len(self.booking_progress), self.booking_progress)
 
         if len(self.booking_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
@@ -596,9 +595,9 @@ class ChatEngine(KnowledgeEngine):
                 ticket_type = "return"
             else:
                 ticket_type = "single"
-            print("SCRAPING ZE UEBSAIT")
+
             url, ticket_data = scraper_1.scrape(journey_data)
-            print(url, ticket_data)
+
             msg = ("The best fare for a {} ticket "
                    "between {} and {} is {}").format(
                 ticket_type,
@@ -621,7 +620,6 @@ class ChatEngine(KnowledgeEngine):
             self.add_to_message_chain(msg_final,
                                       suggestions=["Start a new chat"])
         except StationNotFoundError as e:
-            print("ERROR:", e)
             msg = ("Sorry, there are no available tickets between these "
                    "stations at this time. Please try another station "
                    "combination or time.")
@@ -668,7 +666,7 @@ class ChatEngine(KnowledgeEngine):
             )
 
         self.add_to_message_chain(tags, priority=7)
-        print(self.delay_progress)
+
         if len(self.delay_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.delay_progress) == 0:
@@ -722,14 +720,16 @@ class ChatEngine(KnowledgeEngine):
         dep_time = re.search('\d{2}:\d{2}$',
                              str(journey_data['departure_date']))
         pr = Predictions()
-        print("DEPARTING>>>>", journey_data['depart'])
-        print("ARRIVING>>>>", journey_data['arrive'])
         delay_prediction = pr.display_results(journey_data['depart'],
                                               journey_data['arrive'],
                                               dep_time[0])
-        print(delay_prediction)
+        msg_final = ("Thanks for using AKOBot today! If I can be of "
+                         "anymore assistance, click the button below to start "
+                         "a new chat")
         self.add_to_message_chain(delay_prediction, priority=0)
         self.declare(Fact(can_produce_ending=True))
+        self.add_to_message_chain(msg_final,
+                                      suggestions=["Start a new chat"])
         
 
     # HELP ACTIONS

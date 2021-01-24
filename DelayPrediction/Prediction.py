@@ -59,12 +59,12 @@ class Predictions:
             Abbreviation of the station provided
         """
 
-        print(station)
+        print("Received station>>62>>",station)
         x = station.lower()
-        print(x)
+        print("Lowercase station>>64>>",x)
         similar = ''
         if x in self.stations:
-            print("station used>>>", self.stations[x])
+            print("station used>>67>>", self.stations[x])
             return self.stations[x]
         else:
             for s in (self.stations):
@@ -77,7 +77,7 @@ class Predictions:
             if similar == '':
                 print("No similar cities to " + station + " have been found. "
                       "Please type again the station")
-            print("Closest station to provided is >>>>>", similar)
+            print("Closest station to provided is >>>80>>", similar)
             return similar
 
     def harvest_data(self):
@@ -99,7 +99,7 @@ class Predictions:
                                              self.arrival_station)
 
         result = self.db_connection.send_query(query).fetchall()
-        print("Getting data based on the FROM and TO:>>>>>",len(result))
+        print("Getting data based on the FROM and TO:>>>102>>",len(result))
         return result
 
     @staticmethod
@@ -307,7 +307,7 @@ class Predictions:
         x = []
         y = []
         result = self.harvest_data()
-        print("Arrival has data:", len(result))
+        print("Arrival has data>>310>>", len(result))
         for journey in range(len(result)):
             j = []
             k = []
@@ -376,7 +376,7 @@ class Predictions:
         x = []
         y = []
         result = self.harvest_data()
-        print("Delay has data.....>", len(result))
+        print("Delay has data>>379>>", len(result))
         for journey in range(len(result)):
             j = []
             k = []
@@ -456,14 +456,13 @@ class Predictions:
         print("<<<", self.departure_station)
         print("<<<", self.arrival_station)
         print("<<<", self.time_departure)
-        print("<<<", hour_of_day)
-        print("<<<", minute_of_day)
         print("<<<", self.segment_of_day)
         print("<<<", self.rush_hour)
 
         arrival = self.predict_arrival()
+        print("Arriving at>>463>>", arrival)
         delay = self.predict_delay()
-
+        print("Delayed this much>>465>>", delay)
         if (delay[0] == 0) and (delay[1] == 0):
             return ("Your journey is expected to be delayed by less than a "
                     "minute. You will arrive at " + to_st + " at " +
