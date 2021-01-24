@@ -722,9 +722,12 @@ class ChatEngine(KnowledgeEngine):
         dep_time = re.search('\d{2}:\d{2}$',
                              str(journey_data['departure_date']))
         pr = Predictions()
+        print("DEPARTING>>>>", journey_data['depart'])
+        print("ARRIVING>>>>", journey_data['arrive'])
         delay_prediction = pr.display_results(journey_data['depart'],
                                               journey_data['arrive'],
                                               dep_time[0])
+        print(delay_prediction)
         self.add_to_message_chain(delay_prediction, priority=0)
         self.declare(Fact(can_produce_ending=True))
         

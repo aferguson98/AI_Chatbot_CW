@@ -32,7 +32,10 @@ class Predictions:
             "ingatestone": "INT",
             "shenfield": "SHENFLD",
             "stanford": "STFD",
-            "liverpool st": "LIVST"
+            "stanford-le-hope": "STFD",
+            "london liverpool street": "LIVST",
+            "london liverpool st": "LIVST",
+            "liverpool street": "LIVST"
         }
         # morning: 5 - 10, midday: 10-15, evening: 15 - 20, night: 20 - 5
         self.segment_of_day = []
@@ -56,9 +59,12 @@ class Predictions:
             Abbreviation of the station provided
         """
 
+        print(station)
         x = station.lower()
+        print(x)
         similar = ''
         if x in self.stations:
+            print("station used>>>", self.stations[x])
             return self.stations[x]
         else:
             for s in (self.stations):
@@ -71,6 +77,7 @@ class Predictions:
             if similar == '':
                 print("No similar cities to " + station + " have been found. "
                       "Please type again the station")
+            print("Closest station to provided is >>>>>", similar)
             return similar
 
     def harvest_data(self):
@@ -92,6 +99,7 @@ class Predictions:
                                              self.arrival_station)
 
         result = self.db_connection.send_query(query).fetchall()
+        print("Getting data based on the FROM and TO:>>>>>",len(result))
         return result
 
     @staticmethod
@@ -299,7 +307,7 @@ class Predictions:
         x = []
         y = []
         result = self.harvest_data()
-
+        print("Arrival has data:", len(result))
         for journey in range(len(result)):
             j = []
             k = []
@@ -368,7 +376,7 @@ class Predictions:
         x = []
         y = []
         result = self.harvest_data()
-
+        print("Delay has data.....>", len(result))
         for journey in range(len(result)):
             j = []
             k = []
@@ -445,6 +453,14 @@ class Predictions:
         # Check if rush hour or not
         self.rush_hour = self.is_rush_hour(hour_of_day, minute_of_day)
 
+        print("<<<", self.departure_station)
+        print("<<<", self.arrival_station)
+        print("<<<", self.time_departure)
+        print("<<<", hour_of_day)
+        print("<<<", minute_of_day)
+        print("<<<", self.segment_of_day)
+        print("<<<", self.rush_hour)
+
         arrival = self.predict_arrival()
         delay = self.predict_delay()
 
@@ -462,7 +478,7 @@ class Predictions:
 # pr = Predictions()
 # pr.station_finder("DS")
 # pr.station_finder("Norwich")
-# pr.display_results("Norwich", "Colchester", "17:30")
+# pr.display_results("London Liverpool Street", "Colchester", "17:30")
 
 
 # KNN gets similar outputs, so far seems to be the closest to reality.
