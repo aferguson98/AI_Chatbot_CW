@@ -7,7 +7,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
 
 
 def scrape(journey_data):
@@ -41,9 +41,10 @@ def scrape(journey_data):
                      journey_data['no_adults'].strip(),
                      journey_data['no_children'].strip(), url_return, "")
 
-    opts = webdriver.ChromeOptions()
+    opts = webdriver.FirefoxOptions()
     opts.add_argument("--window-size=1920,1080")
-    browser = webdriver.Chrome(ChromeDriverManager().install(), options=opts)
+    opts.add_argument('--headless')
+    browser = webdriver.Chrome(GeckoDriverManager().install(), options=opts)
     print(url)
     browser.get(url)
     html = ""

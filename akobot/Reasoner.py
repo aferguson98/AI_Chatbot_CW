@@ -466,7 +466,7 @@ class ChatEngine(KnowledgeEngine):
 
         for st_type in ["DEP", "RET"]:
             tags, extra_info_appropriate = self.get_dep_arr_date(
-                doc, message_text, tags, st_type
+                doc, message_text, tags, st_type, extra_info_appropriate
             )
 
         if "{TAG:ADT}" in message_text:
