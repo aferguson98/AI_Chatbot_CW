@@ -48,7 +48,14 @@ TokenDictionary = {
     "ret_date_2": [{"LEMMA": {"IN": ["return", "returning"]}},
                    {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
                    {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}], # 25 January at 20:20; 25/01/2021 20:30
-
+    "dep_date_d": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+                    {"POS": "NOUN"}, {"ENT_TYPE": "DATE"}],
+    "dep_time_d": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+                    {"POS": "NOUN"}, {"ENT_TYPE": "TIME"}],
+    "ret_date_d": [{"LEMMA": {"IN": ["return","returning"]}},
+                    {"POS": "NOUN"}, {"ENT_TYPE": "DATE"}],
+    "ret_time_d": [{"LEMMA": {"IN": ["return","returning"]}},
+                    {"POS": "NOUN"}, {"ENT_TYPE": "TIME"}],
 }
 
 
@@ -97,7 +104,7 @@ class ChatEngine(KnowledgeEngine):
 
         # Knowledge dict
         self.knowledge = {}
-        self.booking_progress = "dl_dt_al_rt_rs_na_nc_"
+        self.booking_progress = "dl_dd_dt_al_rd_rt_rs_na_nc_"
         self.delay_progress = "dl_dt_al_"
 
         # User Interface output
@@ -513,7 +520,7 @@ class ChatEngine(KnowledgeEngine):
           salience=97)
     def ask_for_departure_date(self):
         """Decides if need to ask user for the arrival point"""
-        self.add_to_message_chain("{REQ:DDT}When do you want to depart? (Date and time)",
+        self.add_to_message_chain("{REQ:DDT}What date do you want to depart?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
 
