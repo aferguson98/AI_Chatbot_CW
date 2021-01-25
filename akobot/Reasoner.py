@@ -498,14 +498,19 @@ class ChatEngine(KnowledgeEngine):
                 self.add_to_message_chain("There must be "
                                 "at least one passanger.")
                 extra_info_appropriate = False
-
-            if ((self.knowledge['no_adults'] != 0) and 
-                        (self.knowledge['no_children'] != 0)):
-                print("Neither kids or adults == 0")
-                if "{TAG:ADT}" in message_text:
-                    self.booking_progress = self.booking_progress.replace("na_", "")
-                elif "{TAG:CHD}" in message_text:
-                    self.booking_progress = self.booking_progress.replace("nc_", "")
+            print("!!!!! Both kids and parents are == 0")
+            if (self.knowledge['no_adults'] != 0 and 
+                    self.knowledge['no_children'] == 0):
+                print("!!!! Some parrents")
+                self.booking_progress = self.booking_progress.replace("na_", "")
+            elif (self.knowledge['no_children'] != 0 
+                        and self.knowledge['no_adults'] == 0):
+                print("!!!! Some kinds")
+                self.booking_progress = self.booking_progress.replace("nc_", "")
+            else:
+                print("!!!! Parrents AND kids...")
+                self.booking_progress = self.booking_progress.replace("na_", "")
+                self.booking_progress = self.booking_progress.replace("nc_", "")
 
         self.add_to_message_chain(tags, priority=7)
 
@@ -582,11 +587,11 @@ class ChatEngine(KnowledgeEngine):
         """Decides if need to ask user for number of adults"""
         self.add_to_message_chain("{REQ:ADT}How many adults (16+) will be "
                                   "travelling?", 1,
-                                  suggestions=["{TAG:ADT}1", "{TAG:ADT}2",
-                                               "{TAG:ADT}3", "{TAG:ADT}4",
-                                               "{TAG:ADT}5", "{TAG:ADT}6",
-                                               "{TAG:ADT}7", "{TAG:ADT}8",
-                                               "{TAG:ADT}9", "{TAG:ADT}10"])
+                                  suggestions=["{TAG:ADT}0", "{TAG:ADT}1",
+                                               "{TAG:ADT}2", "{TAG:ADT}3",
+                                               "{TAG:ADT}4", "{TAG:ADT}5",
+                                               "{TAG:ADT}6", "{TAG:ADT}7",
+                                               "{TAG:ADT}8", "{TAG:ADT}9"])
         self.declare(Fact(extra_info_requested=True))
 
     @Rule(Fact(action="book"),

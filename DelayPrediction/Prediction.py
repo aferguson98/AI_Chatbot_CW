@@ -1,4 +1,8 @@
 import sys, os
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
 import numpy as np
 from sklearn import neighbors
 from sklearn.model_selection import train_test_split
@@ -7,9 +11,7 @@ from datetime import datetime
 from Database.DatabaseConnector import DBConnection
 from difflib import SequenceMatcher
 
-currentdir = os.path.dirname(os.path.realpath(__file__))
-parentdir = os.path.dirname(currentdir)
-sys.path.append(parentdir)
+
 
 
 class Predictions:
@@ -61,23 +63,20 @@ class Predictions:
 
         print("Received station>>62>>",station)
         x = station.lower()
-        print("Lowercase station>>64>>",x)
+
         similar = ''
         if x in self.stations:
-            print("station used>>67>>", self.stations[x])
             return self.stations[x]
         else:
             for s in (self.stations):
                 ratio = SequenceMatcher(None, x, s).ratio() * 100
                 if ratio >= 60:  # Need to check what value is acceptable
                     similar = s
-                    print(ratio)
                     print("The city you've provided has not been found. "
                           "Closest match to " + station + "  is: " + s.upper())
             if similar == '':
                 print("No similar cities to " + station + " have been found. "
                       "Please type again the station")
-            print("Closest station to provided is >>>80>>", similar)
             return similar
 
     def harvest_data(self):
@@ -99,7 +98,6 @@ class Predictions:
                                              self.arrival_station)
 
         result = self.db_connection.send_query(query).fetchall()
-        print("Getting data based on the FROM and TO:>>>102>>",len(result))
         return result
 
     @staticmethod
@@ -307,7 +305,6 @@ class Predictions:
         x = []
         y = []
         result = self.harvest_data()
-        print("Arrival has data>>310>>", len(result))
         for journey in range(len(result)):
             j = []
             k = []
@@ -376,14 +373,14 @@ class Predictions:
         x = []
         y = []
         result = self.harvest_data()
-        print("Delay has data>>379>>", len(result))
+
         for journey in range(len(result)):
             j = []
             k = []
-            # public_departure | actual_departure |
-            # public_arrival | actual_arrival
-            if result[journey][2] != '' and result[journey][3] != '' and \
-                    result[journey][5] != '' and result[journey][6] != '':
+            #       public_departure | actual_departure |
+            if (result[journey][2] != '' and result[journey][3] != '' and 
+                    #   public_arrival | actual_arrival
+                    result[journey][5] != '' and result[journey][6] != ''):
                 # Get date based on RID
                 date = str(result[journey][0])
                 # Convert date to day of the week
@@ -464,20 +461,28 @@ class Predictions:
         delay = self.predict_delay()
         print("Delayed this much>>465>>", delay)
         if (delay[0] == 0) and (delay[1] == 0):
+            print(("Your journey is expected to be delayed by less than a "
+                    "minute. You will arrive at " + to_st + " at " +
+                    str(arrival[0]) + ":" + str(arrival[1])))
             return ("Your journey is expected to be delayed by less than a "
                     "minute. You will arrive at " + to_st + " at " +
                     str(arrival[0]) + ":" + str(arrival[1]))
         elif delay[0] == 0:
+            print(("You will arrive at " + to_st + " at " +
+                    str(arrival[0]).zfill(2) + ":" + str(arrival[1]).zfill(2) +
+                    ". The journey has been delayed by " +
+                    str(delay[1]).zfill(2) + " minutes and " +
+                    str(delay[2]).zfill(2) + " seconds."))
             return ("You will arrive at " + to_st + " at " +
                     str(arrival[0]).zfill(2) + ":" + str(arrival[1]).zfill(2) +
-                    ". The total journey delay is predicted to be " +
+                    ". The journey has been delayed by " +
                     str(delay[1]).zfill(2) + " minutes and " +
                     str(delay[2]).zfill(2) + " seconds.")
 
 # pr = Predictions()
 # pr.station_finder("DS")
 # pr.station_finder("Norwich")
-# pr.display_results("London Liverpool Street", "Colchester", "17:30")
+# pr.display_results("Norwich", "Colchester", "17:30")
 
 
 # KNN gets similar outputs, so far seems to be the closest to reality.
