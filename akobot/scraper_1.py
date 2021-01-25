@@ -44,7 +44,8 @@ def scrape(journey_data):
     opts = webdriver.FirefoxOptions()
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument('--headless')
-    browser = webdriver.Chrome(GeckoDriverManager().install(), options=opts)
+    browser = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
+                                options=opts)
     print(url)
     browser.get(url)
     html = ""
