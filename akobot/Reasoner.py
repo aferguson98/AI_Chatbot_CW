@@ -25,22 +25,24 @@ TokenDictionary = {
     "depart": [{"POS": "ADP", "LEMMA": {"IN": ["depart", "from", "departing"]}},
                {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
     "depart_station":
-        [{"POS": "ADP", "LEMMA": {"IN": ["depart", "from", "departing"]}},
+        [{"LEMMA": {"IN": ["depart", "from", "departing"]}},
          {"LOWER": {"IN": get_all_stations()}}],
     "arrive": [{"POS": "ADP", "LEMMA": {"IN": ["arrive", "to", "arriving"]}},
                {"POS": "PROPN", "OP": "*"}, {"POS": "PROPN", "DEP": "pobj"}],
     "arrive_station":
-        [{"POS": "ADP", "LEMMA": {"IN": ["arrive", "to", "arriving"]}},
+        [{"LEMMA": {"IN": ["arrive", "to", "arriving"]}},
          {"LOWER": {"IN": get_all_stations()}}],
     "return": [{"LEMMA": {"IN": ["return", "returning"]}}],
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
     "dep_date": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
-                 {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}], # tomorrow at 15:30 // 24 January 2021 at 15:30 // 24-01-2021 15:30
-    "dep_date_2": [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
-                    {"POS": "ADP"}, {"ENT_TYPE": "TIME", "OP": "?"},
-                    {"POS": "ADP", "OP": "?"},{"SHAPE": "dd:dd"}], # tomorrow 15:30
-                    # add another ent_type : DATE without OP : +
+                 {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+    # tomorrow at 15:30 // 24 January 2021 at 15:30 // 24-01-2021 15:30
+    "dep_date_2": [
+        {"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+        {"POS": "ADP"}, {"ENT_TYPE": "TIME", "OP": "?"},
+        {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],  # tomorrow 15:30
+    # add another ent_type : DATE without OP : +
     "ret_date": [{"LEMMA": {"IN": ["return", "returning"]}},
                  {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "?"},
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
@@ -244,10 +246,16 @@ class ChatEngine(KnowledgeEngine):
 
         search_station = None
         matches = self.get_matches(doc, TokenDictionary[token])
+        print(matches)
         if matches is not None:
             search_station = str(matches[1:])
         else:
-            if "{TAG:" + st_type + "}" in message_text:
+            matches = self.get_matches(doc, TokenDictionary[token + "_station"])
+            print("TDK", TokenDictionary[token + "_station"])
+            print("ARR", matches)
+            if matches is not None:
+                search_station = str(matches[1:])
+            elif "{TAG:" + st_type + "}" in message_text:
                 search_station = message_text.replace("{TAG:" + st_type + "}",
                                                       "")
 
@@ -320,8 +328,24 @@ class ChatEngine(KnowledgeEngine):
             extra_info_appropriate = False
         return tags, extra_info_appropriate
 
-    def get_dep_arr_date(self, doc, message_text, tags, st_type="DEP",
+    def get_dep_arr_date(self, message_text, tags, st_type="DEP",
                          extra_info_appropriate=True):
+        # replace times to be useful to SpaCy
+        if (message_text.find("am") > 0 and
+                not message_text[message_text.find("am") - 1].isspace()):
+            message_text = message_text.replace("am", " am")
+        if (message_text.find("AM") > 0 and
+                not message_text[message_text.find("AM") - 1].isspace()):
+            message_text = message_text.replace("AM", " am")
+        if (message_text.find("pm") > 0 and
+                not message_text[message_text.find("pm") - 1].isspace()):
+            message_text = message_text.replace("pm", " pm")
+        if (message_text.find("PM") > 0 and
+                not message_text[message_text.find("PM") - 1].isspace()):
+            message_text = message_text.replace("PM", " pm")
+
+        doc = self.nlp_engine.process(message_text)
+
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
             print("DEP date(1)>>321>>", dte)
@@ -369,7 +393,7 @@ class ChatEngine(KnowledgeEngine):
                 self.declare(Fact(departure_date=date_time))
                 tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("dt_", "")
-            elif st_type =="RET":
+            elif st_type == "RET":
                 self.declare(Fact(return_date=date_time))
                 tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
                 self.booking_progress = self.booking_progress.replace("rt_", "")
@@ -462,7 +486,7 @@ class ChatEngine(KnowledgeEngine):
 
         if len(self.booking_progress) == 0:
             self.modify(f1, complete=True)
-            self.booking_progress="ENGINE"
+            self.booking_progress = "ENGINE"
 
         for st_type in ["DEP", "ARR"]:
             tags, extra_info_appropriate = self.get_dep_arr_station(
@@ -475,7 +499,7 @@ class ChatEngine(KnowledgeEngine):
 
         for st_type in ["DEP", "RET"]:
             tags, extra_info_appropriate = self.get_dep_arr_date(
-                doc, message_text, tags, st_type, extra_info_appropriate
+                message_text, tags, st_type, extra_info_appropriate
             )
         
         print(">>> FACT >>>>", self.knowledge)
@@ -517,10 +541,11 @@ class ChatEngine(KnowledgeEngine):
         if len(self.booking_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.booking_progress) == 0:
-            self.add_to_message_chain("{COMP:True}Thanks. Now I have all I need to produce a ticket. "
-                        "A new window will appear, to select cheapest prices. "
-                        "This shouldn't take longer than 10 seconds. "
-                        "Please hold on....")
+            self.add_to_message_chain(
+                "{COMP:True}Thanks. Now I have all I need to produce a ticket. "
+                "A new window will appear, to select cheapest prices. "
+                "This shouldn't take longer than 10 seconds. "
+                "Please hold on....")
 
     # # Request Extra Info # #
     @Rule(Fact(action="book"),
@@ -541,8 +566,8 @@ class ChatEngine(KnowledgeEngine):
           salience=97)
     def ask_for_departure_date(self):
         """Decides if need to ask user for the arrival point"""
-        self.add_to_message_chain("{REQ:DDT}When do you want to depart? (Date and time)",
-                                  1)
+        self.add_to_message_chain("{REQ:DDT}When do you want to depart? (Date "
+                                  "and time)", 1)
         self.declare(Fact(extra_info_requested=True))
 
     @Rule(Fact(action="book"),
@@ -575,7 +600,8 @@ class ChatEngine(KnowledgeEngine):
           salience=94)
     def ask_for_return_date(self):
         """Decides if need to ask user whether they're returning"""
-        self.add_to_message_chain("{REQ:RTD}And when are you returning? (Date and time)", 1)
+        self.add_to_message_chain("{REQ:RTD}And when are you returning? (Date "
+                                  "and time)", 1)
         self.declare(Fact(extra_info_requested=True))
 
     @Rule(Fact(action="book"),
@@ -690,7 +716,7 @@ class ChatEngine(KnowledgeEngine):
 
         for st_type in ["DLY"]:
             tags, extra_info_appropriate = self.get_dep_arr_date(
-                doc, message_text, tags, st_type, extra_info_appropriate
+                message_text, tags, st_type, extra_info_appropriate
             )
 
         self.add_to_message_chain(tags, priority=7)
@@ -760,7 +786,6 @@ class ChatEngine(KnowledgeEngine):
                          "a new chat")
         self.add_to_message_chain(delay_prediction, priority=0)
         self.declare(Fact(can_produce_ending=True))
-        
 
     # @Rule(Fact(complete=True),
     #       Fact(can_produce_ending = True),
