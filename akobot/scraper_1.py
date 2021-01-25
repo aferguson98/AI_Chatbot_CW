@@ -45,7 +45,7 @@ def scrape(journey_data):
     opts = webdriver.FirefoxOptions()
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument('--headless')
-    firefox_binary = FirefoxBinary("/app/vendor/firefox/firefox-bin")
+    firefox_binary = FirefoxBinary("/app/vendor/firefox/firefox")
     browser = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
                                 options=opts, firefox_binary=firefox_binary)
     print(url)
