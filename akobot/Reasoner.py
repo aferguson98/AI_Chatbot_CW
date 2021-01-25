@@ -261,10 +261,16 @@ class ChatEngine(KnowledgeEngine):
                     else:
                         self.declare(Fact(depart=station[1]))
                 else:
-                    if must_search_station:
-                        self.declare(Fact(arrive=station[0]))
+                    if (self.knowledge['depart'] == station[0] or 
+                        self.knowledge['depart'] == station[1]):
+                        self.add_to_message_chain("{REQ:ARR}Please enter a different "
+                            "station from departing.")
+                        extra_info_appropriate = False
                     else:
-                        self.declare(Fact(arrive=station[1]))
+                        if must_search_station:
+                            self.declare(Fact(arrive=station[0]))
+                        else:
+                            self.declare(Fact(arrive=station[1]))
                 if must_search_station:
                     self.booking_progress = self.booking_progress.replace(
                         progress_tag, "")
@@ -471,18 +477,35 @@ class ChatEngine(KnowledgeEngine):
             tags, extra_info_appropriate = self.get_dep_arr_date(
                 doc, message_text, tags, st_type, extra_info_appropriate
             )
-
+        
+        print(">>> FACT >>>>", self.knowledge)
         if "{TAG:ADT}" in message_text:
             adults = message_text.replace("{TAG:ADT}", "")
             self.declare(Fact(no_adults=adults))
             tags += "{ADT:" + adults + "}"
-            self.booking_progress = self.booking_progress.replace("na_", "")
-
-        if "{TAG:CHD}" in message_text:
-            children = message_text.replace("{TAG:CHD}", "")
+            print(">>>> Added adults: ", tags)
+            print(">>> FACT >>>>", self.knowledge)
+        elif "{TAG:CHD}" in message_text:
+            children = message_text.replace("{TAG:CHD}", "") 
             self.declare(Fact(no_children=children))
             tags += "{CHD:" + children + "}"
-            self.booking_progress = self.booking_progress.replace("nc_", "")
+            print(">>> Added children: ", tags)
+            print(">>> FACT >>>>", self.knowledge)
+        if (('no_adults' in self.knowledge) and ('no_children' in self.knowledge)):
+            if ((self.knowledge['no_adults'] == 0) and 
+                (self.knowledge['no_children'] == 0)):
+                print("<<<< Both adults and children == 0 >>>>")
+                self.add_to_message_chain("There must be "
+                                "at least one passanger.")
+                extra_info_appropriate = False
+
+            if ((self.knowledge['no_adults'] != 0) and 
+                        (self.knowledge['no_children'] != 0)):
+                print("Neither kids or adults == 0")
+                if "{TAG:ADT}" in message_text:
+                    self.booking_progress = self.booking_progress.replace("na_", "")
+                elif "{TAG:CHD}" in message_text:
+                    self.booking_progress = self.booking_progress.replace("nc_", "")
 
         self.add_to_message_chain(tags, priority=7)
 
@@ -675,6 +698,7 @@ class ChatEngine(KnowledgeEngine):
                                       "This shouldn't take longer than 10 "
                                       "seconds. Please hold on....")
 
+
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
           NOT(Fact(extra_info_requested=True)),
@@ -685,6 +709,7 @@ class ChatEngine(KnowledgeEngine):
         self.add_to_message_chain("{REQ:DEP}Where are you travelling from?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
+
 
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
@@ -697,6 +722,7 @@ class ChatEngine(KnowledgeEngine):
                                   1)
         self.declare(Fact(extra_info_requested=True))
 
+
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
           NOT(Fact(extra_info_requested=True)),
@@ -708,6 +734,7 @@ class ChatEngine(KnowledgeEngine):
                                   "the station?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
+
 
     @Rule(Fact(action="delay"),
           Fact(complete=True),
@@ -728,8 +755,17 @@ class ChatEngine(KnowledgeEngine):
                          "a new chat")
         self.add_to_message_chain(delay_prediction, priority=0)
         self.declare(Fact(can_produce_ending=True))
-        self.add_to_message_chain(msg_final,
-                                      suggestions=["Start a new chat"])
+        
+
+    # @Rule(Fact(complete=True),
+    #       Fact(can_produce_ending = True),
+    #       salience=90)
+    # def produce_ending(self):
+    #     msg_final = ("Thanks for using AKOBot today! If I can be of "
+    #                      "anymore assistance, click the button below to start "
+    #                      "a new chat")
+    #     self.add_to_message_chain(msg_final,
+    #                                   suggestions=["Start a new chat"], priority=0)
         
 
     # HELP ACTIONS
