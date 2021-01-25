@@ -37,7 +37,7 @@ def process_user_input():
                     "train smarter. How can I be of assistance today?")
         this_chat = Chat()
         this_chat.add_message("bot", response, datetime.datetime.now())
-        suggestions = ['Book a ticket', 'Delay prediction', 'Help & Support']
+        suggestions = ['Book a ticket', 'Delay prediction']
         response_req = True
     elif user_input == "POPMSG" and is_system == "true":
         message = this_chat.pop_message()
@@ -49,7 +49,7 @@ def process_user_input():
             message = this_chat.add_message("human",
                                             user_input,
                                             datetime.datetime.now())
-        except Exception as e:
+        except StationNotFoundError as e:
             print(e)
             message = ["Sorry! There has been an issue with this chat, please "
                        "reload the page to start a new chat.", ["Reload Page"],
