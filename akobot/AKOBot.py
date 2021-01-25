@@ -39,8 +39,8 @@ def get_all_stations():
     if result:
         stations = []
         for res in result:
-            stations.append(res[0])
-            stations.append(res[1])
+            stations.append(res[0].lower())
+            stations.append(res[1].lower())
         return stations
     else:
         return "error_error_error"
