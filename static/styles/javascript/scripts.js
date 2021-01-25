@@ -85,7 +85,8 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
             completeDelayPrediction(output.message);
             getControlTags(output.message);
             synthesizeSpeech(output.message.replace(/\s?\{[^}]+\}/g, ''));
-            if(messageObject.text.includes("Ok great, let's get your booking started!")){
+            if(messageObject.text.includes("Ok great, let's get your booking started!") &&
+               $(window).width() > 1400){
                 $('main').css('width', 'calc(100% - 400px)');
                 $('.side-bar').css("transform", "scaleX(1)");
                 $('.content.active').slideUp(500);
