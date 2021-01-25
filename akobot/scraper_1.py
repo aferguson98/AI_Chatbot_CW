@@ -7,6 +7,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
 from webdriver_manager.firefox import GeckoDriverManager
 
 
@@ -44,8 +45,9 @@ def scrape(journey_data):
     opts = webdriver.FirefoxOptions()
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument('--headless')
+    firefox_binary = FirefoxBinary("/app/vendor/firefox/firefox")
     browser = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
-                                options=opts)
+                                options=opts, firefox_binary=firefox_binary)
     print(url)
     browser.get(url)
     html = ""
