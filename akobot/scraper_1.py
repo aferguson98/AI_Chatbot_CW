@@ -38,8 +38,8 @@ def scrape(journey_data):
     url = url.format(journey_data['depart'], journey_data['arrive'],
                      journey_data['departure_date'].strftime("%Y-%m-%d"),
                      journey_data['departure_date'].strftime("%H:%M:00"),
-                     journey_data['no_adults'].strip(),
-                     journey_data['no_children'].strip(), url_return, "")
+                     journey_data['no_adults'],
+                     journey_data['no_children'], url_return, "")
 
     opts = webdriver.ChromeOptions()
     opts.add_argument("--window-size=1920,1080")
@@ -60,7 +60,6 @@ def scrape(journey_data):
         browser.quit()
 
     page_scrape = soup(html, "html.parser")
-    print(page_scrape)
     cheapest_price_html = page_scrape.find(
         "span", {"class": "basket-summary__total--value"}
     )

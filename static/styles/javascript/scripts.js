@@ -12,6 +12,12 @@ let tag_req_map = {
     "ADT": "{TAG:ADT}",
     "CHD": "{TAG:CHD}"
 }
+let is_book_ticket = false;
+let sdk = SpeechSDK
+const speechConfig = sdk.SpeechConfig.fromSubscription("be0b6d81b60844a084339d50a0b79832",
+                                                     "uksouth");
+const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
+
 
 // When doc.ready
 $(function () {
@@ -24,10 +30,29 @@ $(function () {
         console.log("Making a AJAX call");
         e.preventDefault();
         let message = getMessageText();
+        if (message.includes('book a ticket')){
+            is_book_ticket = true;
+        }
         sendInputData(tag_message + " " + message);
         sendMessage(message);
     });
 
+    $(window).resize(function(){
+        if (is_book_ticket === true){
+            if ($(window).width() > 1400) {
+                $('main').css('width', 'calc(100% - 400px)');
+                $('.side-bar').css("transform", "scaleX(1)");
+                $('.content.active').slideUp(500);
+                $('.content.inactive').slideUp(500);
+                $('#booking .active').delay(500).slideDown(500);
+                $('#predict .inactive').delay(500).slideDown(500);
+                $('#support .inactive').delay(500).slideDown(500);
+            } else {
+                $('main').css('width', '100%');
+                $('.side-bar').css("transform", "scaleX(0)");
+            }
+        }
+    });
 });
 
 // Get the text of the user message
@@ -149,7 +174,7 @@ function writeMessage(message) {
                     }else{
                         // removes non-human readable portion of suggestions
                         let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '')
-                        console.log(suggestionClean)
+                        
                         msgElement += `<div class="suggestion" 
                                        onclick="sendInputData('${suggestion}');
                                                 sendMessage('${suggestionClean}');">
@@ -166,13 +191,9 @@ function writeMessage(message) {
 }
 
 function synthesizeSpeech(text) {
-    let sdk = SpeechSDK
+    
     let ssml = `<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
                 <voice name="en-GB-RyanNeural">${text.replace("AKOBot", "akobot")}</voice></speak>`
-
-    const speechConfig = sdk.SpeechConfig.fromSubscription("be0b6d81b60844a084339d50a0b79832",
-                                                     "uksouth");
-    const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
 
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
     synthesizer.speakSsmlAsync(
@@ -189,19 +210,33 @@ function synthesizeSpeech(text) {
         });
 }
 
+function fromMic() {
+    
+    let audioConfig = sdk.AudioConfig.fromDefaultMicrophoneInput();
+    let recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
+    
+    console.log('Speak into your microphone.');
+    recognizer.recognizeOnceAsync(result => {
+        console.log(`RECOGNIZED: Text=${result.text}`);
+        $('.left-box').val(result.text); 
+        setTimeout(() => {
+            $('.send-message').click()
+        }, 1500);
+    });
+}
+
 function updateTicketField(tag, value, time){
      $('.' + tag).text(value.toUpperCase());
      $('#search-time').text(time)
 }
 
 function changeUIFromTags(messageText, updatedTime){
-    console.log(messageText)
     let regex = new RegExp('{([^}]+)}', 'g');
     let results = [...messageText.matchAll(regex)]
     results.forEach(function(element){
         let tagArr = element[1].split(":");
         let tag = tagArr[0], value = tagArr[1];
-        console.log(value)
+        
         switch (tag){
             case 'DEP':
                 updateTicketField('from', value, updatedTime)
@@ -225,7 +260,6 @@ function changeUIFromTags(messageText, updatedTime){
                 updateTicketField('child', value, updatedTime)
                 break;
             case 'COMP':
-                console.log("RUNNING ENGINE!!!");
                 sendInputData("RUN_ENGINE");
                 complete = true;
                 break;
@@ -244,7 +278,7 @@ function getControlTags(messageText){
         switch (tag){
             case 'REQ':
                 //The Reasoner has made a request of the user - the following message will need the matching tag code
-                console.log(value)
+                
                 tag_message += tag_req_map[value];
                 break;
             default:
