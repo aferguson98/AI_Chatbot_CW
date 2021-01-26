@@ -41,37 +41,13 @@
 							fare.</p>
 					</span>
 				</div>
-				<div class="container" id="predict">
-					<h1 class="heading">
-						<img src="../static/images/predict_ico_blu.png" alt="Predict Icon"/>predict
-					</h1>
-					<span class="content active">
-						<p>AKO can book train tickets too! Just ask to book a ticket and AKO will find the cheapest
-							fare.</p>
-					</span>
-					<span class="content inactive">
-						<p>Once you've completed your booking, ask &lsquo;how long will I be delayed?&rsquo; to see delay predictions
-							based on National Rail data. (For stations between Norwich and London Liverpool Street only)</p>
-					</span>
-				</div>
-				<div class="container" id="support">
-					<h1 class="heading">
-						<img src="../static/images/support_ico.png" alt="Support Icon"/>support
-					</h1>
-					<span class="content active">
-						<p>AKO can book train tickets too! Just ask to book a ticket and AKO will find the cheapest
-							fare.</p>
-					</span>
-					<span class="content inactive">
-						<p>AKO can help with some customer service tasks, ask for help to find out more.</p>
-					</span>
-				</div>
 			</div>
 		</main>
 		<footer>
 			<form method="POST" id="message_form">
 				<div class="form-group">
 					<input type="text" class="left-box" id="user_input" name="user_input" placeholder="Start typing your message"/>
+					<button type="button" class="right-box record-speech" onclick="fromMic()"></button>
 					<button type="submit" class="right-box send-message"></button>
 				</div>
 			</form>

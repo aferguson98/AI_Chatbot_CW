@@ -5,7 +5,7 @@ Contains classes related to reasoning
 """
 import re
 from difflib import SequenceMatcher
-
+from datetime import datetime
 from dateparser.date import DateDataParser
 from experta import *
 from spacy.matcher import Matcher
@@ -19,7 +19,6 @@ from DelayPrediction.Prediction import Predictions
 TokenDictionary = {
     "book": [{"LEMMA": {"IN": ["book", "booking", "purchase", "buy"]}}],
     "delay": [{"LEMMA": {"IN": ["delay", "predict", "prediction"]}}],
-    "help": [{"LEMMA": {"IN": ["help", "support", "assistance"]}}],
     "yes": [{"LOWER": {"IN": ["yes", "yeah", "y", "yep", "yeh", "ye", "👍"]}}],
     "no": [{"LOWER": {"IN": ["no", "nope", "n", "nah", "na", "👎"]}}],
     "depart": [{"POS": "ADP", "LEMMA": {"IN": ["depart", "from", "departing"]}},
@@ -44,12 +43,13 @@ TokenDictionary = {
         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],  # tomorrow 15:30
     # add another ent_type : DATE without OP : +
     "ret_date": [{"LEMMA": {"IN": ["return", "returning"]}},
-                 {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "*"},
+                 {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "?"},
                  {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
-                 {"ENT_TYPE": "TIME", "DEP": "pobj"}],
+                 {"ENT_TYPE": "TIME", "DEP": "pobj"}], # tomorrow at 20:20; 
     "ret_date_2": [{"LEMMA": {"IN": ["return", "returning"]}},
                    {"POS": "ADP"}, {"ENT_TYPE": "DATE", "OP": "+"},
-                   {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+                   {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}], # 25 January at 20:20; 25/01/2021 20:30
+
 }
 
 
@@ -79,13 +79,22 @@ def get_similarity(comparator_a, comparator_b):
     return ratio
 
 
-def get_date_from_text(date_text):
+def get_date_from_text(date_text, extra_info_appropriate):
+    if ' at ' in date_text:
+        dt_time = str(date_text).split('at ')[1]
+    else:
+        dt_time = str(date_text).split(' ')[1]
+    dt_h = str(dt_time).split(':')[0]
+    dt_m = str(dt_time).split(':')[1]
     date_text = date_text.replace(" am", "am")
     date_text = date_text.replace(" AM", "am")
     date_text = date_text.replace(" pm", "pm")
     date_text = date_text.replace(" PM", "pm")
     ddp = DateDataParser(languages=['en'])
-    return ddp.get_date_data(date_text).date_obj
+    if not (0 <= int(dt_h) < 24 and 0 <= int(dt_m) < 60):
+        print(">>>>Should return false...")
+        return None, False
+    return ddp.get_date_data(date_text).date_obj, extra_info_appropriate
 
 
 class ChatEngine(KnowledgeEngine):
@@ -222,6 +231,13 @@ class ChatEngine(KnowledgeEngine):
         bool
             True if extra info can be asked for from the user and false if not
         """
+
+        journey_data = {}
+        for f in self.facts:
+            for f_id, val in self.facts[f].items():
+                journey_data[f_id] = val
+
+
         if st_type == "DEP":
             # Departure Station
             found_mul_msg = ("I found a few departure stations that matched {}."
@@ -243,13 +259,12 @@ class ChatEngine(KnowledgeEngine):
 
         search_station = None
         matches = self.get_matches(doc, TokenDictionary[token])
-        print(matches)
+
         if matches is not None:
             search_station = str(matches[1:])
         else:
             matches = self.get_matches(doc, TokenDictionary[token + "_station"])
-            print("TDK", TokenDictionary[token + "_station"])
-            print("ARR", matches)
+            
             if matches is not None:
                 search_station = str(matches[1:])
             elif "{TAG:" + st_type + "}" in message_text:
@@ -261,15 +276,27 @@ class ChatEngine(KnowledgeEngine):
                 station = self.find_station(search_station)
                 tags += "{" + st_type + ":" + station[1] + "}"
                 if st_type == "DEP":
-                    if must_search_station:
-                        self.declare(Fact(depart=station[0]))
+                    if (('arrive' in journey_data and journey_data['arrive'] == station[0]) or 
+                        ('arrive' in journey_data and journey_data['arrive'] == station[1])):
+                        self.add_to_message_chain("{REQ:ARR}Please enter a different "
+                            "station from arrival.")
+                        extra_info_appropriate = False
                     else:
-                        self.declare(Fact(depart=station[1]))
+                        if must_search_station:
+                            self.declare(Fact(depart=station[0]))
+                        else:
+                            self.declare(Fact(depart=station[1]))
                 else:
-                    if must_search_station:
-                        self.declare(Fact(arrive=station[0]))
+                    if (('depart' in journey_data and journey_data['depart'] == station[0]) or 
+                        ('depart' in journey_data and journey_data['depart'] == station[1])):
+                        self.add_to_message_chain("{REQ:ARR}Please enter a different "
+                            "station from departing.")
+                        extra_info_appropriate = False
                     else:
-                        self.declare(Fact(arrive=station[1]))
+                        if must_search_station:
+                            self.declare(Fact(arrive=station[0]))
+                        else:
+                            self.declare(Fact(arrive=station[1]))
                 if must_search_station:
                     self.booking_progress = self.booking_progress.replace(
                         progress_tag, "")
@@ -339,16 +366,16 @@ class ChatEngine(KnowledgeEngine):
 
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
-            print("DEP date(1)>>>", dte)
+            # print("DEP date(1)>>321>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['dep_date_2'])
-                print("RET date(2)>>>>", dte)
+                # print("DEP date(2)>>324>>", dte)
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
-            print("RET date(1)>>>", dte)
+            # print("RET date(1)>>327>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['ret_date_2'])
-                print("RET date(2)>>>>", dte)
+                # print("RET date(2)>>330>>", dte)
         elif st_type == "DLY":
             dte = None
             if "departing at" in message_text:
@@ -376,18 +403,26 @@ class ChatEngine(KnowledgeEngine):
                 dte = doc
         else:
             raise UnknownStationTypeException(st_type)
-
+        
+        date_time_now = datetime.now()
         if dte is not None:
             if st_type != "DLY":
-                date_time = get_date_from_text(str(dte[2:]))
-            if st_type == "DEP":
-                self.declare(Fact(departure_date=date_time))
-                tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
-                self.booking_progress = self.booking_progress.replace("dt_", "")
-            elif st_type == "RET":
-                self.declare(Fact(return_date=date_time))
-                tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
-                self.booking_progress = self.booking_progress.replace("rt_", "")
+                date_time, extra_info_appropriate = get_date_from_text(
+                    str(dte[2:]),extra_info_appropriate)
+                # Date is not in the past and time is within 00:00-23:59
+                if (date_time is not None and (date_time > date_time_now)):
+                    if st_type == "DEP":
+                        self.declare(Fact(departure_date=date_time))
+                        tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
+                        self.booking_progress = self.booking_progress.replace("dt_", "")
+                    elif st_type == "RET":
+                        self.declare(Fact(return_date=date_time))
+                        tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
+                        self.booking_progress = self.booking_progress.replace("rt_", "")
+                else:
+                    self.add_to_message_chain("{REQ:DDT} Please enter valid date and time.")
+                    extra_info_appropriate = False
+
 
         return tags, extra_info_appropriate
 
@@ -439,14 +474,6 @@ class ChatEngine(KnowledgeEngine):
                                           "predict how long you'll be delayed.",
                                           req_response=False)
                 self.modify(f1, action="delay")
-            else:
-                matcher.add("HELP_PATTERN", None, TokenDictionary['help'])
-                matches = matcher(doc)
-                if len(matches) > 0:
-                    # likely to be a support request
-                    self.add_to_message_chain("Ok, no problem! I'm here to "
-                                              "help.", req_response=False)
-                    self.modify(f1, action="help")
 
     # BOOKING ACTIONS
     @Rule(Fact(action="book"),
@@ -472,14 +499,9 @@ class ChatEngine(KnowledgeEngine):
             The message text passed by the user to the Chat class
         """
         doc = self.nlp_engine.process(message_text)
-        print([d.shape_ for d in doc])
-        print([d.ent_type_ for d in doc])
         tags = ""
         extra_info_appropriate = True
-
-        if len(self.booking_progress) == 0:
-            self.modify(f1, complete=True)
-            self.booking_progress = "ENGINE"
+        adults_and_children = []
 
         for st_type in ["DEP", "ARR"]:
             tags, extra_info_appropriate = self.get_dep_arr_station(
@@ -497,28 +519,28 @@ class ChatEngine(KnowledgeEngine):
 
         if "{TAG:ADT}" in message_text:
             adults = message_text.replace("{TAG:ADT}", "")
-            self.declare(Fact(no_adults=adults))
-            tags += "{ADT:" + adults + "}"
+            self.declare(Fact(no_adults=int(adults)))
             self.booking_progress = self.booking_progress.replace("na_", "")
+            tags += "{ADT:" + adults + "}"
+            print(">>>> Added adults: ", tags)
 
-        if "{TAG:CHD}" in message_text:
-            children = message_text.replace("{TAG:CHD}", "")
-            self.declare(Fact(no_children=children))
-            tags += "{CHD:" + children + "}"
+        elif "{TAG:CHD}" in message_text:
+            children = message_text.replace("{TAG:CHD}", "") 
+            self.declare(Fact(no_children=int(children)))
             self.booking_progress = self.booking_progress.replace("nc_", "")
+            tags += "{CHD:" + children + "}"
+            print(">>> Added children: ", tags)
 
+          
         self.add_to_message_chain(tags, priority=7)
 
-        print(len(self.booking_progress), self.booking_progress)
+        print(f1['complete'])
 
         if len(self.booking_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.booking_progress) == 0:
-            self.add_to_message_chain(
-                "{COMP:True}Thanks. Now I have all I need to produce a ticket. "
-                "A new window will appear, to select cheapest prices. "
-                "This shouldn't take longer than 10 seconds. "
-                "Please hold on....")
+            self.modify(f1, complete=True)
+            print(f1['complete'])
 
     # # Request Extra Info # #
     @Rule(Fact(action="book"),
@@ -576,28 +598,43 @@ class ChatEngine(KnowledgeEngine):
         self.add_to_message_chain("{REQ:RTD}And when are you returning? (Date "
                                   "and time)", 1)
         self.declare(Fact(extra_info_requested=True))
+    
+    @Rule(AS.adults << Fact(no_adults=0),
+          AS.children << Fact(no_children=0),
+          AS.complete << Fact(complete=True),
+          Fact(action="book"),
+          salience=93)
+    def has_atleast_one_passanger(self, adults, children, complete):
+        # Adults and children both equal zero
+        # print(self.facts)
+        # print("Sending request for more passangers")
+        self.add_to_message_chain("There must be at least one passenger", req_response=False)
+        self.booking_progress += "na_nc_"
+        self.retract(children)
+        self.retract(adults) 
+        self.modify(complete, complete=False)
 
     @Rule(Fact(action="book"),
           Fact(extra_info_req=True),
           NOT(Fact(extra_info_requested=True)),
           NOT(Fact(no_adults=W())),
-          salience=93)
+          salience=92)
     def ask_for_no_adults(self):
         """Decides if need to ask user for number of adults"""
         self.add_to_message_chain("{REQ:ADT}How many adults (16+) will be "
                                   "travelling?", 1,
-                                  suggestions=["{TAG:ADT}1", "{TAG:ADT}2",
-                                               "{TAG:ADT}3", "{TAG:ADT}4",
-                                               "{TAG:ADT}5", "{TAG:ADT}6",
-                                               "{TAG:ADT}7", "{TAG:ADT}8",
-                                               "{TAG:ADT}9", "{TAG:ADT}10"])
+                                  suggestions=["{TAG:ADT}0", "{TAG:ADT}1",
+                                               "{TAG:ADT}2", "{TAG:ADT}3",
+                                               "{TAG:ADT}4", "{TAG:ADT}5",
+                                               "{TAG:ADT}6", "{TAG:ADT}7",
+                                               "{TAG:ADT}8", "{TAG:ADT}9"])
         self.declare(Fact(extra_info_requested=True))
 
     @Rule(Fact(action="book"),
           Fact(extra_info_req=True),
           NOT(Fact(extra_info_requested=True)),
           NOT(Fact(no_children=W())),
-          salience=92)
+          salience=91)
     def ask_for_no_children(self):
         """Decides if need to ask user for number of children"""
         self.add_to_message_chain("{REQ:CHD}How many children (under 16) will "
@@ -611,8 +648,29 @@ class ChatEngine(KnowledgeEngine):
 
     @Rule(Fact(action="book"),
           Fact(complete=True),
-          salience=91)
+          NOT(Fact(final_message_sent = True)),
+          salience=89)
+    def generate_message(self):
+        self.add_to_message_chain(
+                "{COMP:True}Thanks. Now I have all I need to produce a ticket. "
+                "A new window will appear, to select cheapest prices. "
+                "This shouldn't take longer than 10 seconds. "
+                "Please hold on....")
+
+        self.declare(Fact(final_message_sent = True))
+        for f in self.facts:
+            for g, val in self.facts[f].items():
+                if g not in ["__factid__", "message_text", "extra_info_req",
+                             "extra_info_requested"]:
+                    self.knowledge[g] = val
+        self.halt()
+        
+
+    @Rule(Fact(action="book"),
+          Fact(final_message_sent=True),
+          salience=90)
     def generate_ticket(self):
+
         journey_data = {}
         for f in self.facts:
             for f_id, val in self.facts[f].items():
@@ -622,9 +680,9 @@ class ChatEngine(KnowledgeEngine):
                 ticket_type = "return"
             else:
                 ticket_type = "single"
-            print("SCRAPING ZE UEBSAIT")
+
             url, ticket_data = scraper_1.scrape(journey_data)
-            print(url, ticket_data)
+
             msg = ("The best fare for a {} ticket "
                    "between {} and {} is {}").format(
                 ticket_type,
@@ -642,16 +700,18 @@ class ChatEngine(KnowledgeEngine):
             self.add_to_message_chain(msg, 1, req_response=False)
             self.add_to_message_chain(msg_booking,
                                       suggestions=[
-                                          "{BOOK:" + url + "}Book now &raquo;"
+                                          "{BOOK:" + url + "}Book now &raquo;",
+                                          "Start a new chat"
                                       ])
             self.add_to_message_chain(msg_final,
                                       suggestions=["Start a new chat"])
-        except Exception as e:
-            print("ERROR:", e)
+        except StationNotFoundError as e:
             msg = ("Sorry, there are no available tickets between these "
                    "stations at this time. Please try another station "
                    "combination or time.")
             self.add_to_message_chain(msg, 1)
+
+        
 
     # DELAY ACTIONS
     @Rule(Fact(action="delay"),
@@ -682,6 +742,7 @@ class ChatEngine(KnowledgeEngine):
 
         if len(self.delay_progress) == 0:
             self.modify(f1, complete=True)
+            self.delay_progress = "ENGINE"
 
         for st_type in ["DEP", "ARR"]:
             tags, extra_info_appropriate = self.get_dep_arr_station(
@@ -694,14 +755,14 @@ class ChatEngine(KnowledgeEngine):
             )
 
         self.add_to_message_chain(tags, priority=7)
-        print(self.delay_progress)
+
         if len(self.delay_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.delay_progress) == 0:
-            # self.modify(f1, complete=True)
             self.add_to_message_chain("Thanks, I can now predict your arrival. "
                                       "This shouldn't take longer than 10 "
                                       "seconds. Please hold on....")
+
 
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
@@ -714,6 +775,7 @@ class ChatEngine(KnowledgeEngine):
                                   1)
         self.declare(Fact(extra_info_requested=True))
 
+
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
           NOT(Fact(extra_info_requested=True)),
@@ -724,6 +786,7 @@ class ChatEngine(KnowledgeEngine):
         self.add_to_message_chain("{REQ:ARR}Where are you travelling to?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
+
 
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
@@ -736,6 +799,7 @@ class ChatEngine(KnowledgeEngine):
                                   "the station?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
+
 
     @Rule(Fact(action="delay"),
           Fact(complete=True),
@@ -751,10 +815,12 @@ class ChatEngine(KnowledgeEngine):
         delay_prediction = pr.display_results(journey_data['depart'],
                                               journey_data['arrive'],
                                               dep_time[0])
-        self.add_to_message_chain(delay_prediction, priority=0)
+        msg_final = ("Thanks for using AKOBot today! If I can be of "
+                         "anymore assistance, click the button below to start "
+                         "a new chat")
+        self.add_to_message_chain(delay_prediction, priority=0, req_response=False)
+        self.add_to_message_chain(msg_final, suggestions=["Start a new chat"])
         self.declare(Fact(can_produce_ending=True))
-
-    # HELP ACTIONS
 
     @Rule(salience=1)
     def add_all_facts_to_dict(self):
