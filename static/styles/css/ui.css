@@ -54,10 +54,11 @@ footer{
 	height: 30px;
 	margin: 0 10px;
 	outline: 0;
-	width: calc(100% - 60px);
+	width: calc(100% - 150px);
+	font-size: 1.2em;
 }
 
-.right-box{
+.send-message{
 	background: #0f19a6;
 	border: 0;
 	border-radius: 50%;
@@ -70,9 +71,26 @@ footer{
 	position: relative;
 	transition: background ease-in-out 0.4s;
 	width: 30px;
+	margin-left: 15px;
 }
 
-.right-box:before{
+.record-speech{
+	background: #f5f5f8;
+	border: 0;
+	border-radius: 50%;
+	color: rgb(5, 5, 5);
+	float: right;
+	font-family: 'iconly', serif;
+	font-size: 20px;
+	height: 30px;
+	outline: 0;
+	position: relative;
+	transition: background ease-in-out 0.4s;
+	width: 30px;
+	margin-left: 15px;
+}
+
+.send-message:before{
 	content: '\e94e';
 	left: 50%;
 	position: absolute;
@@ -80,8 +98,20 @@ footer{
 	transform: translate(-50%, -50%);
 }
 
-.right-box:active,.right-box:focus,.right-box:hover{
+.record-speech:before{
+	content: '\1F3A4';
+	left: 50%;
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.send-message:active,.send-message:focus,.send-message:hover{
 	background: #6a0bd6;
+}
+
+.record-speech:hover{
+	background: #e20707;
 }
 
 /* HEADER AREA */
@@ -253,6 +283,7 @@ main{
 	padding: 10px 10px;
 	word-break: break-word;
 	width: auto;
+	font-size: 1.20em;
 }
 
 .suggestion{
@@ -264,6 +295,7 @@ main{
 	margin: 0 10px;
 	padding: 10px;
 	transition: color ease-in-out 0.4s, background ease-in-out 0.4s;
+	font-size:1.2em;
 }
 
 .suggestion:active, .suggestion:focus, .suggestion:hover{

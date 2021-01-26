@@ -5,7 +5,7 @@ Contains classes related to reasoning
 """
 import re
 from difflib import SequenceMatcher
-
+from datetime import datetime
 from dateparser.date import DateDataParser
 from experta import *
 from spacy.matcher import Matcher
@@ -79,13 +79,22 @@ def get_similarity(comparator_a, comparator_b):
     return ratio
 
 
-def get_date_from_text(date_text):
+def get_date_from_text(date_text, extra_info_appropriate):
+    if ' at ' in date_text:
+        dt_time = str(date_text).split('at ')[1]
+    else:
+        dt_time = str(date_text).split(' ')[1]
+    dt_h = str(dt_time).split(':')[0]
+    dt_m = str(dt_time).split(':')[1]
     date_text = date_text.replace(" am", "am")
     date_text = date_text.replace(" AM", "am")
     date_text = date_text.replace(" pm", "pm")
     date_text = date_text.replace(" PM", "pm")
     ddp = DateDataParser(languages=['en'])
-    return ddp.get_date_data(date_text).date_obj
+    if not (0 <= int(dt_h) < 24 and 0 <= int(dt_m) < 60):
+        print(">>>>Should return false...")
+        return None, False
+    return ddp.get_date_data(date_text).date_obj, extra_info_appropriate
 
 
 class ChatEngine(KnowledgeEngine):
@@ -394,18 +403,26 @@ class ChatEngine(KnowledgeEngine):
                 dte = doc
         else:
             raise UnknownStationTypeException(st_type)
-
+        
+        date_time_now = datetime.now()
         if dte is not None:
             if st_type != "DLY":
-                date_time = get_date_from_text(str(dte[2:]))
-            if st_type == "DEP":
-                self.declare(Fact(departure_date=date_time))
-                tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
-                self.booking_progress = self.booking_progress.replace("dt_", "")
-            elif st_type == "RET":
-                self.declare(Fact(return_date=date_time))
-                tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
-                self.booking_progress = self.booking_progress.replace("rt_", "")
+                date_time, extra_info_appropriate = get_date_from_text(
+                    str(dte[2:]),extra_info_appropriate)
+                # Date is not in the past and time is within 00:00-23:59
+                if (date_time is not None and (date_time > date_time_now)):
+                    if st_type == "DEP":
+                        self.declare(Fact(departure_date=date_time))
+                        tags += "{DTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
+                        self.booking_progress = self.booking_progress.replace("dt_", "")
+                    elif st_type == "RET":
+                        self.declare(Fact(return_date=date_time))
+                        tags += "{RTM:" + date_time.strftime("%d %b %y @ %H_%M") + "}"
+                        self.booking_progress = self.booking_progress.replace("rt_", "")
+                else:
+                    self.add_to_message_chain("{REQ:DDT} Please enter valid date and time.")
+                    extra_info_appropriate = False
+
 
         return tags, extra_info_appropriate
 
@@ -514,16 +531,13 @@ class ChatEngine(KnowledgeEngine):
             tags += "{CHD:" + children + "}"
             print(">>> Added children: ", tags)
 
-        print("booking_not_complete")
-        
+          
         self.add_to_message_chain(tags, priority=7)
 
         print(f1['complete'])
 
         if len(self.booking_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
-        # elif f1['complete']:
-        #     self.declare(Fact(message_sent=True))
         elif len(self.booking_progress) == 0:
             self.modify(f1, complete=True)
             print(f1['complete'])
@@ -686,7 +700,8 @@ class ChatEngine(KnowledgeEngine):
             self.add_to_message_chain(msg, 1, req_response=False)
             self.add_to_message_chain(msg_booking,
                                       suggestions=[
-                                          "{BOOK:" + url + "}Book now &raquo;"
+                                          "{BOOK:" + url + "}Book now &raquo;",
+                                          "Start a new chat"
                                       ])
             self.add_to_message_chain(msg_final,
                                       suggestions=["Start a new chat"])
