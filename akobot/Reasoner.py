@@ -357,16 +357,16 @@ class ChatEngine(KnowledgeEngine):
 
         if st_type == "DEP":
             dte = self.get_matches(doc, TokenDictionary['dep_date'])
-            print("DEP date(1)>>321>>", dte)
+            # print("DEP date(1)>>321>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['dep_date_2'])
-                print("DEP date(2)>>324>>", dte)
+                # print("DEP date(2)>>324>>", dte)
         elif st_type == "RET":
             dte = self.get_matches(doc, TokenDictionary['ret_date'])
-            print("RET date(1)>>327>>", dte)
+            # print("RET date(1)>>327>>", dte)
             if dte is None:
                 dte = self.get_matches(doc, TokenDictionary['ret_date_2'])
-                print("RET date(2)>>330>>", dte)
+                # print("RET date(2)>>330>>", dte)
         elif st_type == "DLY":
             dte = None
             if "departing at" in message_text:
@@ -460,7 +460,7 @@ class ChatEngine(KnowledgeEngine):
 
     # BOOKING ACTIONS
     @Rule(Fact(action="book"),
-          AS.f1 << Fact(complete=W()),
+          AS.f1 << Fact(complete=False),
           AS.f2 << Fact(extra_info_req=False),
           Fact(message_text=MATCH.message_text),
           salience=99)
@@ -513,7 +513,8 @@ class ChatEngine(KnowledgeEngine):
             self.booking_progress = self.booking_progress.replace("nc_", "")
             tags += "{CHD:" + children + "}"
             print(">>> Added children: ", tags)
-        print(self.facts)
+
+        print("booking_not_complete")
         
         self.add_to_message_chain(tags, priority=7)
 
@@ -521,10 +522,11 @@ class ChatEngine(KnowledgeEngine):
 
         if len(self.booking_progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
-        elif f1['complete']:
-            self.declare(Fact(message_sent=True))
+        # elif f1['complete']:
+        #     self.declare(Fact(message_sent=True))
         elif len(self.booking_progress) == 0:
             self.modify(f1, complete=True)
+            print(f1['complete'])
 
     # # Request Extra Info # #
     @Rule(Fact(action="book"),
@@ -590,13 +592,13 @@ class ChatEngine(KnowledgeEngine):
           salience=93)
     def has_atleast_one_passanger(self, adults, children, complete):
         # Adults and children both equal zero
-        print(self.facts)
-        print("Sending request for more passangers")
+        # print(self.facts)
+        # print("Sending request for more passangers")
         self.add_to_message_chain("There must be at least one passenger", req_response=False)
         self.booking_progress += "na_nc_"
-        self.modify(complete, complete=False)
         self.retract(children)
         self.retract(adults) 
+        self.modify(complete, complete=False)
 
     @Rule(Fact(action="book"),
           Fact(extra_info_req=True),
@@ -632,19 +634,29 @@ class ChatEngine(KnowledgeEngine):
 
     @Rule(Fact(action="book"),
           Fact(complete=True),
+          NOT(Fact(final_message_sent = True)),
           salience=89)
     def generate_message(self):
         self.add_to_message_chain(
                 "{COMP:True}Thanks. Now I have all I need to produce a ticket. "
                 "A new window will appear, to select cheapest prices. "
                 "This shouldn't take longer than 10 seconds. "
-                "Please hold on....", priority=0)
+                "Please hold on....")
+
+        self.declare(Fact(final_message_sent = True))
+        for f in self.facts:
+            for g, val in self.facts[f].items():
+                if g not in ["__factid__", "message_text", "extra_info_req",
+                             "extra_info_requested"]:
+                    self.knowledge[g] = val
+        self.halt()
+        
 
     @Rule(Fact(action="book"),
-          Fact(complete=True),
-          Fact(message_sent=True),
+          Fact(final_message_sent=True),
           salience=90)
     def generate_ticket(self):
+
         journey_data = {}
         for f in self.facts:
             for f_id, val in self.facts[f].items():
@@ -683,6 +695,8 @@ class ChatEngine(KnowledgeEngine):
                    "stations at this time. Please try another station "
                    "combination or time.")
             self.add_to_message_chain(msg, 1)
+
+        
 
     # DELAY ACTIONS
     @Rule(Fact(action="delay"),

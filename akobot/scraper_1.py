@@ -60,7 +60,6 @@ def scrape(journey_data):
         browser.quit()
 
     page_scrape = soup(html, "html.parser")
-    print(page_scrape)
     cheapest_price_html = page_scrape.find(
         "span", {"class": "basket-summary__total--value"}
     )
