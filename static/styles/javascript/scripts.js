@@ -13,11 +13,8 @@ let tag_req_map = {
     "CHD": "{TAG:CHD}"
 }
 let is_book_ticket = false;
-let sdk = SpeechSDK
-const speechConfig = sdk.SpeechConfig.fromSubscription("be0b6d81b60844a084339d50a0b79832",
-                                                     "uksouth");
-const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
-
+const sdk = SpeechSDK
+const speechConfig = sdk.SpeechConfig.fromSubscription("be0b6d81b60844a084339d50a0b79832", "uksouth");
 
 // When doc.ready
 $(function () {
@@ -191,10 +188,9 @@ function writeMessage(message) {
 }
 
 function synthesizeSpeech(text) {
-    
     let ssml = `<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
                 <voice name="en-GB-RyanNeural">${text.replace("AKOBot", "akobot")}</voice></speak>`
-
+    const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
     synthesizer.speakSsmlAsync(
         ssml,
@@ -210,18 +206,18 @@ function synthesizeSpeech(text) {
         });
 }
 
-function fromMic() {
-    
+function fromMic(){
     let audioConfig = sdk.AudioConfig.fromDefaultMicrophoneInput();
     let recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
     
-    console.log('Speak into your microphone.');
+    $('.record-speech').addClass('animate');
     recognizer.recognizeOnceAsync(result => {
         console.log(`RECOGNIZED: Text=${result.text}`);
+        $('.record-speech').removeClass('animate');
         $('.left-box').val(result.text); 
         setTimeout(() => {
             $('.send-message').click()
-        }, 1500);
+        }, 1000);
     });
 }
 
@@ -260,7 +256,7 @@ function changeUIFromTags(messageText, updatedTime){
                 updateTicketField('child', value, updatedTime)
                 break;
             case 'COMP':
-                sendInputData("RUN_ENGINE");
+                $('.message.bot .time').last().before($('#booking .content.active').html());
                 complete = true;
                 break;
             default:
