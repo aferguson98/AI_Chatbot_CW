@@ -446,8 +446,6 @@ class Predictions:
         minute_of_day = int(t_depart.split(":")[1])
 
         self.segment_of_day = self.check_day_segment(hour_of_day)
-
-        # Check if rush hour or not
         self.rush_hour = self.is_rush_hour(hour_of_day, minute_of_day)
 
         print("<<<", self.departure_station)
@@ -480,9 +478,9 @@ class Predictions:
                     str(delay[2]).zfill(2) + " seconds.")
 
 # pr = Predictions()
-# pr.station_finder("DS")
-# pr.station_finder("Norwich")
-# pr.display_results("Norwich", "Colchester", "17:30")
+# # pr.station_finder("DS")
+# # pr.station_finder("Norwich")
+# pr.display_results("Norwich", "London Liverpool Street", "7:30")
 
 
 # KNN gets similar outputs, so far seems to be the closest to reality.
@@ -505,19 +503,4 @@ class Predictions:
 #   Day of the week, Weekend/weekday, TimeOfArrival, Morning/Midday/Afternoon/Night, Rushhour/noRush
 
 
-# Time(12:45 = 54513), "Midday" = 0, 1, 0, 0 , "not rushour" => 0, "4 (Friday)" => 54513, 0, 1, 0, 0, 0, 4
-# 54513, 0, 1, 0, 0, 0, 4
 
-# 54000, 1, 0, 0, 0, 0, 4
-# 12312, 0, 0, 0, 1, 0, 2
-# 54513, 0, 1, 0, 0, 1, 4    => arrival_time = 
-# # day_segmet = [Morning/Midday/Afternoon/Night]
-# day_segmet = [0, 1, 0, 0] => 0, 1, 0, 0
-# rush_hour = [Rush/NoRush] => [1, 0] => [0]
-# asdsa = [1, 1, 1, 0]
-# 
-
-# Norwich 8 delay
-# RandomStation = 2 faster
-# RandomTwo = 3 faster
-# Colchecster = ON TIME
