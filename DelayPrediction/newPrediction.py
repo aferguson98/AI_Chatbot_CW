@@ -73,11 +73,13 @@ class Predictions:
                 ratio = SequenceMatcher(None, x, s).ratio() * 100
                 if ratio >= 60:  # Need to check what value is acceptable
                     similar = s
+                    print()
                     print("The city you've provided has not been found. "
-                          "Closest match to " + station + "  is: " + s.upper())
+                          "Closest match to " + station + "  is: " + s.upper())  
             if similar == '':
-                print("No similar cities to " + station + " have been found. "
-                      "Please type again the station")
+                raise Exception(("No similar cities to " + station + " have been found. "
+                      "Please type again the station"))
+
             return similar
 
     def harvest_data(self):
@@ -264,7 +266,7 @@ class Predictions:
         
         # x_training_data, x_test_data, y_training_data, y_test_data = train_test_split(X, y, test_size = 0.2)
         
-        clf = neighbors.NearestNeighbors(n_neighbors=3)
+        clf = neighbors.NearestNeighbors(n_neighbors=1)
         clf.fit(X)
 
         # prediction = clf.kneighbors([[dep_time_s, delay_s]])
@@ -277,8 +279,14 @@ class Predictions:
         return prediction
 
     def display_results(self, from_st, to_st, exp_dep, delay):
+        print(from_st)
+        print(to_st)
+        print(exp_dep)
+        print(delay)
         self.departure_station = self.station_finder(from_st)
         self.arrival_station = self.station_finder(to_st)
+        print("Closest depart:", self.departure_station)
+        print("closest arrive:", self.arrival_station)
         self.exp_dep = exp_dep
         hour_of_day = int(exp_dep.split(":")[0])
         minute_of_day = int(exp_dep.split(":")[1])
@@ -290,9 +298,10 @@ class Predictions:
 
         prediction = self.predict(data)
 
-        return prediction
+        return ("The total delay of the journey will be " + str(prediction[1]).zfill(2) + 
+                                " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
 
 
-pr = Predictions()
-a = pr.display_results("Norwich", "Diss", "7:30", "4")
-print(a)
+# pr = Predictions()
+# a = pr.display_results("norwich", "diss", "7:30", "4")
+# print(a)

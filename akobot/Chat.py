@@ -42,7 +42,7 @@ class Chat:
             message_dict = self.chat_engine.message.pop(0)
             tags = self.chat_engine.tags
             self.chat_engine.tags = ""
-            print(self.chat_engine.facts)
+            # print(self.chat_engine.facts)
             return [tags + message_dict['message'],
                     message_dict['suggestions'],
                     message_dict['response_req']]

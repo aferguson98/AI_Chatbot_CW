@@ -381,5 +381,5 @@ class TestPredictions(Predictions):
         print("Delay x == 2:")
         self.tesprediction_inputelay(FROM, TO, depart, 2, result)
 
-test = TestPredictions()
-test.run_tests()
+# test = TestPredictions()
+# test.run_tests()

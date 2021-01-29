@@ -477,10 +477,10 @@ class Predictions:
                     str(delay[1]).zfill(2) + " minutes and " +
                     str(delay[2]).zfill(2) + " seconds.")
 
-pr = Predictions()
-# pr.station_finder("DS")
-# pr.station_finder("Norwich")
-pr.display_results("Norwich", "London Liverpool Street", "7:30")
+# pr = Predictions()
+# # pr.station_finder("DS")
+# # pr.station_finder("Norwich")
+# pr.display_results("Norwich", "London Liverpool Street", "7:30")
 
 
 # KNN gets similar outputs, so far seems to be the closest to reality.
