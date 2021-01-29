@@ -36,8 +36,8 @@ class Predictions:
             "liverpool street": "LIVST"
         }
         # morning: 5 - 10, midday: 10-15, evening: 15 - 20, night: 20 - 5
-        self.segment_of_day = []
-        self.rush_hour = []  # (06 - 09 and 16:00-:18:00) = 1
+        self.segment_of_day = None
+        self.rush_hour = None  # (06 - 09 and 16:00-:18:00) = 1
         self.day_of_week = datetime.today().weekday()  # 0 = Mon and 6 = Sun
         self.weekend = self.is_weekend(
             self.day_of_week)  # Monday - Friday = 1; Saturday and Sunday = 0
@@ -133,11 +133,11 @@ class Predictions:
             weekday = list
                 One hot encoding for weekday(0) or weekend(1)
         """
-        weekend = []
+        weekend = None
         if day <= 4:
-            weekend = [0]
+            weekend = 0
         elif 4 < day < 7:
-            weekend = [1]
+            weekend = 1
         return weekend
 
     @staticmethod
@@ -154,15 +154,15 @@ class Predictions:
             segmentOfDay - list
                 One hot encoding for morning/midday/evening/night
         """
-        segment_of_day = []
+        segment_of_day = None
         if 5 <= hour_of_day < 10:
-            segment_of_day = [1, 0, 0, 0]
+            segment_of_day = 1
         elif 10 <= hour_of_day < 15:
-            segment_of_day = [0, 1, 0, 0]
+            segment_of_day = 2
         elif 15 <= hour_of_day < 20:
-            segment_of_day = [0, 0, 1, 0]
+            segment_of_day = 3
         elif (20 <= hour_of_day < 24) or (0 <= hour_of_day < 5):
-            segment_of_day = [0, 0, 0, 1]
+            segment_of_day = 4
         return segment_of_day
 
     @staticmethod
@@ -185,126 +185,21 @@ class Predictions:
 
         if (5 <= hour <= 9) or (16 <= hour <= 18):
             if (hour == 5 and 45 <= minute < 60) or (5 < hour < 9):
-                rush_hour = [1]
+                rush_hour = 1
             elif (hour == 5 and minute < 45) or (hour == 9 and 0 < minute):
-                rush_hour = [0]
+                rush_hour = 0
             elif 16 <= hour or (hour <= 18 and minute == 0):
-                rush_hour = [1]
+                rush_hour = 1
         elif (9 < hour < 16) or (hour == 9 and 0 < minute < 60) or (
                 18 < hour < 24) or (0 < hour < 5):
-            rush_hour = [0]
+            rush_hour = 0
 
         return rush_hour
 
-    def knn(self, x_data, y_data):
-        """
-            K nearest neighbours prediction
-
-            Parameters
-            ----------
-            x_data - array
-                Data serving as input
-            y_data - array
-                Data serving as output
-
-            Returns
-            -------
-            Predicted value based on the input - estimated time user will be delayed
-        """
-
-        time_depart_s = (
-                datetime.strptime(self.time_departure, '%H:%M') - datetime(
-            1900, 1, 1)).total_seconds()
-        prediction_input = []
-        prediction_input.append(self.day_of_week)
-        prediction_input.extend(self.weekday)
-        prediction_input.append(time_depart_s)
-        prediction_input.extend(self.segment_of_day)
-        prediction_input.extend(self.rush_hour)
-
-        # turn the variables into numpy arrays so they can be reshaped for
-        # training the model.
-        x = np.array(x_data)
-        y = np.array(y_data)
-        prediction_input = np.array(time_depart_s)
-
-        # Splitting data into 80-20 train/test
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
-
-        # Reshape the data into 2D arrays so it can be used to train
-        x_train = x_train.reshape(-1, 1)
-        y_train = y_train.reshape(-1, 1)
-        x_test = x_test.reshape(-1, 1)
-        y_test = y_test.reshape(-1, 1)
-        prediction_input = prediction_input.reshape(-1, 1)
-
-        # Specifying type of classification and training
-        clf = neighbors.KNeighborsRegressor()
-        clf.fit(x_train, y_train)
-
-        prediction_s = clf.predict(prediction_input)
-
-        return prediction_s
-
-    def mlp(self, x_data, y_data):
-        """
-            Multi-layer perception neural network prediction
-
-            Parameters
-            ----------
-            x_data - array
-                Data serving as input
-            y_data - array
-                Data serving as output
-
-            Returns
-            -------
-            Predicted value based on the input - estimated arrival time at
-            station X
-        """
-
-        time_depart_s = (
-                datetime.strptime(self.time_departure, '%H:%M') - datetime(
-            1900, 1, 1)).total_seconds()
-        prediction_input = []
-        prediction_input.append(self.day_of_week)
-        prediction_input.extend(self.weekday)
-        prediction_input.append(time_depart_s)
-        prediction_input.extend(self.segment_of_day)
-        prediction_input.extend(self.rush_hour)
-
-        # turn the variables into numpy arrays so they can be reshaped for
-        # training the model.
-        x = np.array(x_data)
-        y = np.array(y_data)
-        prediction_input = np.array(time_depart_s)
-
-        # Splitting data into 80-20 train/test
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
-
-        # Reshape the data into 2D arrays so it can be used to train
-        x_train = x_train.reshape(-1, 1)
-        y_train = y_train.reshape(-1, 1)
-        x_test = x_test.reshape(-1, 1)
-        y_test = y_test.reshape(-1, 1)
-        prediction_input = prediction_input.reshape(-1, 1)
-
-        # Specifying type of classification and training
-        clf = MLPRegressor(hidden_layer_sizes=(32, 16, 8), activation="relu",
-                           solver="adam", random_state=1, max_iter=2000)
-        clf.fit(x_train, y_train.ravel())
-
-        prediction_s = clf.predict(prediction_input)
-
-        return prediction_s
-
-
+    
     def prepare_datasets(self):
         
         result = self.harvest_data()
-        # self.journeys = pd.DataFrame(columns=["rid", "time_dep", "delay", "day_of_week",
-        #         "weekend", "day_segment", "rush_hour", "arrival_time"])
-        # self.journeys = pd.DataFrame(columns=["rid", "time_dep", "delay", "arrival_time"])
         data = []
 
         for journey in range(len(result)):
@@ -348,12 +243,10 @@ class Predictions:
                 except:
                     print("Unable to get  time_arrival")
                 # Add all above into dataset used for prediction
-                # self.journeys.loc[row] = [rid, time_dep, journey_delay, day_of_week, 
-                #         weekend, day_segment, rush_hour,  time_arrival]
-                # self.journeys.loc[row] = [rid, time_dep, journey_delay, time_arrival]
-                # data.append([rid, time_dep, journey_delay, day_of_week, 
-                #             weekend, day_segment, rush_hour,  time_arrival])
-                data.append([rid, time_dep, journey_delay, time_arr])
+
+                data.append([rid, time_dep, journey_delay, day_of_week, 
+                            weekend, day_segment, rush_hour,  time_arr])
+                # data.append([rid, time_dep, journey_delay, time_arr])
 
         return data
 
@@ -362,33 +255,22 @@ class Predictions:
         dep_time_s = (datetime.strptime(self.exp_dep, '%H:%M') - datetime(
                             1900, 1, 1)).total_seconds()
         delay_s = int(self.delay) * 60
-        # journeys = pd.DataFrame(data, columns=["rid", "time_dep", 
-        #                     "delay", "day_of_week","weekend", 
-        #                     "day_segment", "rush_hour", "arrival_time"])
-
         journeys = pd.DataFrame(data, columns=["rid", "time_dep", 
-                            "delay", "arrival_time"])
-
-        # X = self.journeys.drop(['rid', 'arrival_time'], axis=1)
-        # y = self.journeys[['rid', 'arrival_time']].values
+                            "delay", "day_of_week","weekend", 
+                            "day_segment", "rush_hour", "arrival_time"])
 
         X = journeys.drop(['rid','arrival_time'], axis=1)
-        y = journeys[['rid', 'arrival_time']].values
+        y = journeys['arrival_time']
         
-        x_training_data, x_test_data, y_training_data, y_test_data = train_test_split(X, y, test_size = 0.2)
-        # x_training_data = np.asarray(x_training_data)
-        # y_training_data = np.asarray(y_training_data)
+        # x_training_data, x_test_data, y_training_data, y_test_data = train_test_split(X, y, test_size = 0.2)
         
         clf = neighbors.NearestNeighbors(n_neighbors=3)
         clf.fit(X)
 
-        # clf = neighbors.KNeighborsClassifier(n_neighbors=3)
-        # clf.fit(x_training_data, y_training_data)
-
-        prediction = clf.kneighbors([[dep_time_s, delay_s]])
-
+        # prediction = clf.kneighbors([[dep_time_s, delay_s]])
+        prediction = clf.kneighbors([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
+                                            self.segment_of_day, self.rush_hour]])
         prediction = self.convert_time(prediction[0])
-        print(prediction)
 
         print("The total delay of the journey will be " + str(prediction[1]).zfill(2) + 
                                 " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
