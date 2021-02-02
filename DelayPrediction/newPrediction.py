@@ -200,7 +200,14 @@ class Predictions:
 
     
     def prepare_datasets(self):
-        
+        """
+        Queries data with FROM and TO stations and distributes values 
+            used for prediction
+
+        Returns
+        -------
+        data - List of all data necessary for predictions
+        """
         result = self.harvest_data()
         data = []
 
@@ -244,16 +251,28 @@ class Predictions:
                                     datetime(1900, 1, 1)).total_seconds())
                 except:
                     print("Unable to get  time_arrival")
-                # Add all above into dataset used for prediction
+                
 
+                # Add all above into dataset used for prediction
                 data.append([rid, time_dep, journey_delay, day_of_week, 
                             weekend, day_segment, rush_hour,  time_arr])
-                # data.append([rid, time_dep, journey_delay, time_arr])
 
         return data
 
         
     def predict(self, data):
+        """
+        Predicts how long the user will be delayed using nearest neighbours
+            model.
+        
+        Parameters
+        ----------
+        data - List of all data needed for predicting
+
+        Returns
+        -------
+        prediction - list  of time how long the user will be delayed.
+        """
         dep_time_s = (datetime.strptime(self.exp_dep, '%H:%M') - datetime(
                             1900, 1, 1)).total_seconds()
         delay_s = int(self.delay) * 60
@@ -262,14 +281,11 @@ class Predictions:
                             "day_segment", "rush_hour", "arrival_time"])
 
         X = journeys.drop(['rid','arrival_time'], axis=1)
-        y = journeys['arrival_time']
-        
-        # x_training_data, x_test_data, y_training_data, y_test_data = train_test_split(X, y, test_size = 0.2)
+        y = journeys['arrival_time'].values
         
         clf = neighbors.NearestNeighbors(n_neighbors=1)
         clf.fit(X)
 
-        # prediction = clf.kneighbors([[dep_time_s, delay_s]])
         prediction = clf.kneighbors([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
                                             self.segment_of_day, self.rush_hour]])
         prediction = self.convert_time(prediction[0])
@@ -279,14 +295,25 @@ class Predictions:
         return prediction
 
     def display_results(self, from_st, to_st, exp_dep, delay):
-        print(from_st)
-        print(to_st)
-        print(exp_dep)
-        print(delay)
+        """
+        Linking function of both data preparation and prediction
+        Sends result to reasoning engine
+
+        Parameters
+        ----------
+        from_st - String - departing station name
+        to_st - String - arriving station name
+        exp_dep - Datetime - when user was expecting to depart
+        delay - Integer - how long user was delayed (in minutes)
+
+        Returns
+        -------
+        Sentence including predicted delay to arriving station.
+
+        """
+   
         self.departure_station = self.station_finder(from_st)
         self.arrival_station = self.station_finder(to_st)
-        print("Closest depart:", self.departure_station)
-        print("closest arrive:", self.arrival_station)
         self.exp_dep = exp_dep
         hour_of_day = int(exp_dep.split(":")[0])
         minute_of_day = int(exp_dep.split(":")[1])
