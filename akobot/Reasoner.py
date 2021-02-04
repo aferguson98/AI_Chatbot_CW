@@ -13,7 +13,7 @@ from experta import *
 from spacy.matcher import Matcher
 
 from Database.DatabaseConnector import DBConnection
-from DelayPrediction.Prediction import Predictions
+from DelayPrediction.newPrediction import Predictions
 from akobot import (StationNoMatchError,
                     StationNotFoundError,
                     UnknownPriorityException,
@@ -28,6 +28,7 @@ TokenDictionary = {
     "no": [{"LOWER": {"IN": ["no", "nope", "n", "nah", "na", "👎"]}}],
     "return": [{"LEMMA": {"IN": ["return", "returning"]}}],
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
+    "dep_delay" : [{"LIKE_NUM" : True}],
 
 }
 
@@ -289,7 +290,7 @@ class ChatEngine(KnowledgeEngine):
             return date_time
 
     def get_dep_arr_station(self, doc, message_text, tags, st_type,
-                            extra_info_appropriate=True):
+                            extra_info_appropriate=True, station_name = 0):
         """
         Get the arrival or departure station from the message_text and return
         the relevant tags and if extra info can be asked for
@@ -355,8 +356,8 @@ class ChatEngine(KnowledgeEngine):
         if search_station:
             try:
                 station = self.find_station(search_station)
-                if (op_token in self.knowledge and
-                        station[0] == self.knowledge[op_token]):
+                if (token in self.knowledge and
+                        station[station_name] == self.knowledge[token]):
                     request_tag = "{REQ:" + st_type + "}"
                     msg = ("{}The departure and arrival station cannot be the "
                            "same. Please enter a new {} station")
@@ -366,9 +367,9 @@ class ChatEngine(KnowledgeEngine):
                 else:
                     tags += "{" + st_type + ":" + station[1] + "}"
                     if st_type == "DEP":
-                        self.declare(Fact(depart=station[0]))
+                        self.declare(Fact(depart=station[station_name]))
                     else:
-                        self.declare(Fact(arrive=station[0]))
+                        self.declare(Fact(arrive=station[station_name]))
                 self.progress = self.progress.replace(progress_tag, "")
             except StationNoMatchError as e:
                 extra_info_appropriate = False
@@ -460,6 +461,7 @@ class ChatEngine(KnowledgeEngine):
                     tags += ("{DLY:" + date_time.strftime("%H_%M") + "}")
                     self.progress = self.progress.replace("dt_", "")
             else:
+# ASK ALEJANDRO IF DELAY MINUTES NEEDS TO BE ADDED HERE?
                 if st_type == "DEP" or st_type == "DLY":
                     request_tag = "{REQ:DDT}"
                     question_form = "departing"
@@ -531,9 +533,12 @@ class ChatEngine(KnowledgeEngine):
             if len(matches) > 0:
                 # likely to be a delay prediction
                 self.add_to_message_chain("Using the latest train data, I can "
-                                          "predict how long you'll be delayed.",
+                                          "predict how long you'll be delayed."
+                                          " <br><i>Only available from Norwich to "
+                                          "London Liverpool Street and "
+                                          "intermediate stations.</i>",
                                           req_response=False)
-                self.progress = "dl_dt_al_"
+                self.progress = "dl_al_dt_dd_"
                 self.modify(f1, action="delay")
 
     # BOOKING ACTIONS
@@ -796,7 +801,7 @@ class ChatEngine(KnowledgeEngine):
 
         for st_type in ["DEP", "ARR"]:
             tags, extra_info_appropriate = self.get_dep_arr_station(
-                doc, message_text, tags, st_type, extra_info_appropriate
+                doc, message_text, tags, st_type, extra_info_appropriate, 1
             )
 
         for st_type in ["DLY"]:
@@ -804,13 +809,22 @@ class ChatEngine(KnowledgeEngine):
                 message_text, tags, st_type, extra_info_appropriate
             )
 
+        if "{TAG:DDL}" in message_text:
+            dep_delay = message_text.replace("{TAG:DDL}", "")
+            dep_delay_doc = self.nlp_engine.process(dep_delay)
+            dep_delay_doc = str(self.get_matches(dep_delay_doc, TokenDictionary['dep_delay']))
+            self.declare(Fact(departure_delay = int(dep_delay_doc)))
+            self.progress = self.progress.replace("dd_", "")
+            tags += "{DDL:" + str(dep_delay_doc) + "}"
+
         self.add_to_message_chain(tags, priority=7)
 
         if len(self.progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.progress) == 0:
             self.add_to_message_chain("Great! I can now predict when you'll "
-                                      "arrive. This may take up to 20 seconds.")
+                                      "arrive. Shouldn't take longer than 5 seconds."
+                                      " Please hold on...")
 
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
@@ -839,12 +853,25 @@ class ChatEngine(KnowledgeEngine):
           NOT(Fact(extra_info_requested=True)),
           NOT(Fact(departure_date=W())),
           salience=96)
-    def departure_time_delay(self):
+    def departure_time(self):
         """Decides if need to ask user for the arrival point"""
-        self.add_to_message_chain("{REQ:DDT}What time did you actually depart "
-                                  "the station?",
+        self.add_to_message_chain("{REQ:DDT}What time were you expecting "
+                                  "to depart the station?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
+
+    @Rule(Fact(action="delay"),
+          Fact(extra_info_req=True),
+          NOT(Fact(extra_info_requested=True)),
+          NOT(Fact(departure_delay=W())),
+          NOT(Fact(delay_time_received=True)),
+          salience=95)
+    def delay_time(self):
+        print("Asking for delay time")
+        self.add_to_message_chain("{REQ:DDL}How long are you delayed?",
+                                  1)
+        self.declare(Fact(extra_info_requested=True))
+        self.declare(Fact(delay_time_received=True))
 
     @Rule(Fact(action="delay"),
           Fact(complete=True),
@@ -854,18 +881,15 @@ class ChatEngine(KnowledgeEngine):
         for f in self.facts:
             for f_id, val in self.facts[f].items():
                 journey_data[f_id] = val
+        print(journey_data)
         pr = Predictions()
         try:
-            delay_prediction = pr.display_results(
-                journey_data['depart'], journey_data['arrive'],
-                journey_data['departure_date']
-            )
-        except ValueError as e:
-            delay_prediction = ("Sorry. I couldn't find any data between these "
-                                "two stations at this time. Please note that "
-                                "delay prediction only works for stations from "
-                                "Norwich to London Liverpool Street and only "
-                                "in the Norwich -> London direction.")
+            delay_prediction = pr.display_results(journey_data['depart'],
+                                                journey_data['arrive'],
+                                                journey_data['departure_date'],
+                                                journey_data['departure_delay'])
+        except Exception as e:
+            delay_prediction = e
         msg_final = ("Thanks for using AKOBot today! If I can be of "
                      "anymore assistance, click the button below to start "
                      "a new chat")
