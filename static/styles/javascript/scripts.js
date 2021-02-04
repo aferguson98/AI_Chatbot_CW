@@ -13,8 +13,11 @@ let tag_req_map = {
     "CHD": "{TAG:CHD}"
 }
 let is_book_ticket = false;
+let speaking = false;
+
 const sdk = SpeechSDK
 const speechConfig = sdk.SpeechConfig.fromSubscription("be0b6d81b60844a084339d50a0b79832", "uksouth");
+const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 // When doc.ready
 $(function () {
@@ -158,10 +161,11 @@ function writeMessage(message) {
             if(localthis.suggestions.length > 0) {
                 msgElement += `<div class="suggestions-container">`;
                 localthis.suggestions.forEach((suggestion) => {
-                    if(suggestion === "Reload Page" || suggestion === "Start a new chat") {
+                    if(suggestion === "Reload Page" || suggestion === "Start a new chat" || suggestion.includes("{RELOAD}")) {
+                        let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '');
                         msgElement += `<div class="suggestion"
                                        onclick="window.location.reload()">
-                                  ${suggestion}</div>`
+                                  ${suggestionClean}</div>`
                     }else if(suggestion.includes("{BOOK:")){
                         let suggestionClean = suggestion.replace(/\s?\{[^}]+\}/g, '');
                         let url = suggestion.replace("{BOOK:", "").split("}")[0];
@@ -187,17 +191,23 @@ function writeMessage(message) {
     return this;
 }
 
-function synthesizeSpeech(text) {
+async function synthesizeSpeech(text) {
     let ssml = `<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
                 <voice name="en-GB-RyanNeural">${text.replace("AKOBot", "akobot")}</voice></speak>`
     const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
+    audioConfig.privDestination.privAudio.addEventListener("ended", function (){speaking=false})
+    while(speaking){
+        await sleep(200);
+    }
+    speaking = true;
     synthesizer.speakSsmlAsync(
         ssml,
         result => {
             if (result) {
                 console.log(JSON.stringify(result));
             }
+            console.log(synthesizer)
             synthesizer.close();
         },
         error => {

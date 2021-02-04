@@ -47,38 +47,62 @@ MultiTokenDictionary = {
     "dep_date": [
         [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
          {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
-         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
-        [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
-         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
-         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dddd"}],
-        [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
-         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
-         {"POS": "ADP", "OP": "?"}, {"SHAPE": "d:dd"}],
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+         {"ENT_TYPE": "TIME", "DEP": "pobj"}, {"ENT_TYPE": "TIME"}],
         [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
          {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
          {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
          {"ENT_TYPE": "TIME", "DEP": "pobj"}],
         [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
          {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"ENT_TYPE": "DATE", "DEP": "pobj"}],
+        [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+        [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dddd"}],
+        [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "d:dd"}],
+        [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
          {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
         [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
          {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
          {"POS": "ADP", "OP": "?"}, {"SHAPE": "dddd"}],
         [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
          {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
-         {"POS": "ADP", "OP": "?"}, {"SHAPE": "d:dd"}],
-        [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
-         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
-         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
-         {"ENT_TYPE": "DATE", "DEP": "pobj"}]
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "d:dd"}]
     ],
     "ret_date": [
-        [{"LEMMA": {"IN": ["return", "returning"]}}, {"POS": "ADP"},
-         {"ENT_TYPE": "DATE", "OP": "?"}, {"POS": "ADP", "OP": "?"},
-         {"ENT_TYPE": "TIME", "OP": "*"}, {"ENT_TYPE": "TIME", "DEP": "pobj"}],
-        [{"LEMMA": {"IN": ["return", "returning"]}}, {"POS": "ADP"},
-         {"ENT_TYPE": "DATE", "OP": "+"}, {"POS": "ADP", "OP": "?"},
-         {"SHAPE": "dd:dd"}]
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+         {"ENT_TYPE": "TIME", "DEP": "pobj"}],
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"ENT_TYPE": "DATE", "DEP": "pobj"}],
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dddd"}],
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "DATE", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "d:dd"}],
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dd:dd"}],
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "dddd"}],
+        [{"LEMMA": {"IN": ["return", "returning"]}},
+         {"POS": "ADP", "OP": "?"}, {"ENT_TYPE": "TIME", "OP": "*"},
+         {"POS": "ADP", "OP": "?"}, {"SHAPE": "d:dd"}]
     ],
     "dly_date": [
         [{"LEMMA": {"IN": ["depart", "departing", "leave", "leaving"]}},
@@ -242,6 +266,10 @@ class ChatEngine(KnowledgeEngine):
         date_text = date_text.replace(" AM", "am")
         date_text = date_text.replace(" pm", "pm")
         date_text = date_text.replace(" PM", "pm")
+        date_text = date_text.replace(" o'clock", ":00")
+        date_text = date_text.replace(" oclock", ":00")
+        date_text = date_text.replace("o'clock", ":00")
+        date_text = date_text.replace("oclock", ":00")
         try:
             parse(date_text, fuzzy=True)
         except ParserError:
@@ -299,6 +327,7 @@ class ChatEngine(KnowledgeEngine):
                               "{}. Please try again.")
             progress_tag = "dl_"
             token = "depart"
+            op_token = "arrive"
             noun_form = "departure"
         elif st_type == "ARR":
             # Arrival Station
@@ -308,6 +337,7 @@ class ChatEngine(KnowledgeEngine):
                               ". Please try again.")
             progress_tag = "al_"
             token = "arrive"
+            op_token = "depart"
             noun_form = "arrival"
         else:
             raise UnknownStationTypeException(st_type)
@@ -325,8 +355,8 @@ class ChatEngine(KnowledgeEngine):
         if search_station:
             try:
                 station = self.find_station(search_station)
-                if (token in self.knowledge and
-                        station[0] == self.knowledge[token]):
+                if (op_token in self.knowledge and
+                        station[0] == self.knowledge[op_token]):
                     request_tag = "{REQ:" + st_type + "}"
                     msg = ("{}The departure and arrival station cannot be the "
                            "same. Please enter a new {} station")
@@ -675,8 +705,9 @@ class ChatEngine(KnowledgeEngine):
             "{COMP:True}Great! I've got all I need to search for the best "
             "fare. This may take up to 20 seconds. To start the search, check "
             "details below look correct and press Start search, if something "
-            "isn't quite right please click to start a new chat.",
-            suggestions=["Start search &#x1F50D;", "Start a new chat"]
+            "isn't quite right please click to start a new chat.<br/>",
+            suggestions=["Start search &#x1F50D;",
+                         "{RELOAD}Not quite right &#8635;"]
         )
 
         self.declare(Fact(final_message_sent=True))
@@ -824,9 +855,17 @@ class ChatEngine(KnowledgeEngine):
             for f_id, val in self.facts[f].items():
                 journey_data[f_id] = val
         pr = Predictions()
-        delay_prediction = pr.display_results(journey_data['depart'],
-                                              journey_data['arrive'],
-                                              journey_data['departure_date'])
+        try:
+            delay_prediction = pr.display_results(
+                journey_data['depart'], journey_data['arrive'],
+                journey_data['departure_date']
+            )
+        except ValueError as e:
+            delay_prediction = ("Sorry. I couldn't find any data between these "
+                                "two stations at this time. Please note that "
+                                "delay prediction only works for stations from "
+                                "Norwich to London Liverpool Street and only "
+                                "in the Norwich -> London direction.")
         msg_final = ("Thanks for using AKOBot today! If I can be of "
                      "anymore assistance, click the button below to start "
                      "a new chat")
