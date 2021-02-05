@@ -10,7 +10,8 @@ let tag_req_map = {
     "RET": "{TAG:RET}",
     "RTD": "{TAG:RAT}",
     "ADT": "{TAG:ADT}",
-    "CHD": "{TAG:CHD}"
+    "CHD": "{TAG:CHD}",
+    "DDL": "{TAG:DDL}"
 }
 let is_book_ticket = false;
 let speaking = false;
@@ -338,7 +339,8 @@ function completeDelayPrediction(msg){
         complete_journey.push(tag)
     });
     if (complete_journey.includes("DEP") && complete_journey.includes("ARR") 
-                    && complete_journey.includes("DLY")) {
+                    && complete_journey.includes("DLY") 
+                    && complete_journey.includes("DDL")) {
             if (!executed){
                 executed = true;
                 sendInputData("RUN_ENGINE");
