@@ -6,6 +6,7 @@ sys.path.append(parentdir)
 import numpy as np
 import pandas as pd
 from sklearn import neighbors
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
 from datetime import datetime
@@ -283,12 +284,19 @@ class Predictions:
         X = journeys.drop(['rid','arrival_time'], axis=1)
         y = journeys['arrival_time'].values
         
-        clf = neighbors.NearestNeighbors(n_neighbors=1)
-        clf.fit(X)
+        # clf = neighbors.NearestNeighbors(n_neighbors=1)
+        # clf.fit(X)
 
-        prediction = clf.kneighbors([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
+        # prediction = clf.kneighbors([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
+        #                                     self.segment_of_day, self.rush_hour]])
+        # prediction = self.convert_time(prediction[0])
+
+        clf = RandomForestRegressor(n_estimators = 100)
+        clf.fit(X, y)
+
+        prediction = clf.predict([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
                                             self.segment_of_day, self.rush_hour]])
-        prediction = self.convert_time(prediction[0])
+        prediction = self.convert_time([prediction])
 
         print("The total delay of the journey will be " + str(prediction[1]).zfill(2) + 
                                 " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
@@ -329,6 +337,6 @@ class Predictions:
                                 " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
 
 
-# pr = Predictions()
-# a = pr.display_results("norwich", "diss", "7:30", "4")
-# print(a)
+pr = Predictions()
+a = pr.display_results("norwich", "diss", "7:30", "4")
+print(a)
