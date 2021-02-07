@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import sys, os
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
@@ -6,13 +7,18 @@ sys.path.append(parentdir)
 import numpy as np
 import pandas as pd
 from sklearn import neighbors
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
+=======
+>>>>>>> Experta_Engine
 from datetime import datetime
-from Database.DatabaseConnector import DBConnection
 from difflib import SequenceMatcher
 
+import pandas as pd
+from sklearn import neighbors
 
+from Database.DatabaseConnector import DBConnection
 
 
 class Predictions:
@@ -62,7 +68,7 @@ class Predictions:
             Abbreviation of the station provided
         """
 
-        print("Received station>>62>>",station)
+        print("Received station>>62>>", station)
         x = station.lower()
 
         similar = ''
@@ -75,10 +81,11 @@ class Predictions:
                     similar = s
                     print()
                     print("The city you've provided has not been found. "
-                          "Closest match to " + station + "  is: " + s.upper())  
+                          "Closest match to " + station + "  is: " + s.upper())
             if similar == '':
-                raise Exception(("No similar cities to " + station + " have been found. "
-                      "Please type again the station"))
+                raise Exception(
+                    ("No similar cities to " + station + " have been found. "
+                                                         "Please type again the station"))
 
             return similar
 
@@ -198,7 +205,6 @@ class Predictions:
 
         return rush_hour
 
-    
     def prepare_datasets(self):
         """
         Queries data with FROM and TO stations and distributes values 
@@ -213,14 +219,14 @@ class Predictions:
 
         for journey in range(len(result)):
             #   public_departure      |       actual_departure 
-            if (result[journey][2] != '' and result[journey][3] != '' and 
-                    #public_arrival      |       actual_arrival
+            if (result[journey][2] != '' and result[journey][3] != '' and
+                    # public_arrival      |       actual_arrival
                     result[journey][5] != '' and result[journey][6] != ''):
                 # Get date based on RID
                 rid = str(result[journey][0])
                 # Convert date to day of the week
                 day_of_week = datetime(int(rid[:4]), int(rid[4:6]),
-                                        int(rid[6:8])).weekday()
+                                       int(rid[6:8])).weekday()
                 hour_of_day = int(result[journey][3].split(":")[0])
                 minute_of_day = int(result[journey][3].split(":")[1])
                 # Get day of week based on RID - Monday = 0, Sunday = 6
@@ -237,29 +243,31 @@ class Predictions:
                     print("Unable to get time_dep")
                 try:
                     # Delay : actual departure - public timetable departure in seconds
-                    journey_delay = ((datetime.strptime(result[journey][3], '%H:%M') -
-                                datetime(1900, 1, 1)).total_seconds() -
-                                (datetime.strptime(result[journey][2], '%H:%M') -
-                                datetime(1900, 1, 1)).total_seconds())
+                    journey_delay = ((datetime.strptime(result[journey][3],
+                                                        '%H:%M') -
+                                      datetime(1900, 1, 1)).total_seconds() -
+                                     (datetime.strptime(result[journey][2],
+                                                        '%H:%M') -
+                                      datetime(1900, 1, 1)).total_seconds())
                 except:
                     print("Unable to get journey_delay")
                 try:
                     # Arrival : actual arrival - public timetable arrival in seonds
-                    time_arr = ((datetime.strptime(result[journey][6], '%H:%M') -
-                                    datetime(1900, 1, 1)).total_seconds() -
-                                    (datetime.strptime(result[journey][5], '%H:%M') -
-                                    datetime(1900, 1, 1)).total_seconds())
+                    time_arr = ((datetime.strptime(result[journey][6],
+                                                   '%H:%M') -
+                                 datetime(1900, 1, 1)).total_seconds() -
+                                (datetime.strptime(result[journey][5],
+                                                   '%H:%M') -
+                                 datetime(1900, 1, 1)).total_seconds())
                 except:
                     print("Unable to get  time_arrival")
-                
 
                 # Add all above into dataset used for prediction
-                data.append([rid, time_dep, journey_delay, day_of_week, 
-                            weekend, day_segment, rush_hour,  time_arr])
+                data.append([rid, time_dep, journey_delay, day_of_week,
+                             weekend, day_segment, rush_hour, time_arr])
 
         return data
 
-        
     def predict(self, data):
         """
         Predicts how long the user will be delayed using nearest neighbours
@@ -274,24 +282,34 @@ class Predictions:
         prediction - list  of time how long the user will be delayed.
         """
         dep_time_s = (datetime.strptime(self.exp_dep, '%H:%M') - datetime(
-                            1900, 1, 1)).total_seconds()
+            1900, 1, 1)).total_seconds()
         delay_s = int(self.delay) * 60
-        journeys = pd.DataFrame(data, columns=["rid", "time_dep", 
-                            "delay", "day_of_week","weekend", 
-                            "day_segment", "rush_hour", "arrival_time"])
+        journeys = pd.DataFrame(data, columns=["rid", "time_dep",
+                                               "delay", "day_of_week",
+                                               "weekend",
+                                               "day_segment", "rush_hour",
+                                               "arrival_time"])
 
-        X = journeys.drop(['rid','arrival_time'], axis=1)
+        X = journeys.drop(['rid', 'arrival_time'], axis=1)
         y = journeys['arrival_time'].values
         
-        clf = neighbors.NearestNeighbors(n_neighbors=1)
-        clf.fit(X)
+        # clf = neighbors.NearestNeighbors(n_neighbors=1)
+        # clf.fit(X)
 
-        prediction = clf.kneighbors([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
+        # prediction = clf.kneighbors([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
+        #                                     self.segment_of_day, self.rush_hour]])
+        # prediction = self.convert_time(prediction[0])
+
+        clf = RandomForestRegressor(n_estimators = 100)
+        clf.fit(X, y)
+
+        prediction = clf.predict([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
                                             self.segment_of_day, self.rush_hour]])
-        prediction = self.convert_time(prediction[0])
+        prediction = self.convert_time([prediction])
 
-        print("The total delay of the journey will be " + str(prediction[1]).zfill(2) + 
-                                " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
+        print("The total delay of the journey will be " + str(
+            prediction[1]).zfill(2) +
+              " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
         return prediction
 
     def display_results(self, from_st, to_st, exp_dep, delay):
@@ -311,7 +329,7 @@ class Predictions:
         Sentence including predicted delay to arriving station.
 
         """
-   
+
         self.departure_station = self.station_finder(from_st)
         self.arrival_station = self.station_finder(to_st)
         self.exp_dep = exp_dep
@@ -325,10 +343,16 @@ class Predictions:
 
         prediction = self.predict(data)
 
-        return ("The total delay of the journey will be " + str(prediction[1]).zfill(2) + 
-                                " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
+        return ("The total delay of the journey will be " + str(
+            prediction[1]).zfill(2) +
+                " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
 
-
+<<<<<<< HEAD
+pr = Predictions()
+a = pr.display_results("norwich", "diss", "7:30", "4")
+print(a)
+=======
 # pr = Predictions()
 # a = pr.display_results("norwich", "diss", "7:30", "4")
 # print(a)
+>>>>>>> Experta_Engine
