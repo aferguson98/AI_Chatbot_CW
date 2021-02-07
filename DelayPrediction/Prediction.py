@@ -1,8 +1,6 @@
 import sys, os
-currentdir = os.path.dirname(os.path.realpath(__file__))
-parentdir = os.path.dirname(currentdir)
-sys.path.append(parentdir)
 
+from akobot import StationNotFoundError
 import numpy as np
 from sklearn import neighbors
 from sklearn.model_selection import train_test_split
@@ -10,8 +8,6 @@ from sklearn.neural_network import MLPRegressor
 from datetime import datetime
 from Database.DatabaseConnector import DBConnection
 from difflib import SequenceMatcher
-
-
 
 
 class Predictions:
@@ -61,7 +57,7 @@ class Predictions:
             Abbreviation of the station provided
         """
 
-        print("Received station>>62>>",station)
+        print("Received station>>62>>", station)
         x = station.lower()
 
         similar = ''
@@ -75,8 +71,7 @@ class Predictions:
                     print("The city you've provided has not been found. "
                           "Closest match to " + station + "  is: " + s.upper())
             if similar == '':
-                print("No similar cities to " + station + " have been found. "
-                      "Please type again the station")
+                raise StationNotFoundError("Couldn't find station " + station)
             return similar
 
     def harvest_data(self):
@@ -125,7 +120,7 @@ class Predictions:
         Parameters
         ---------
             day - int
-                day of the week 0 = Monday, 6 = Sundau
+                day of the week 0 = Monday, 6 = Sunday
 
         Returns
         -------
@@ -378,7 +373,7 @@ class Predictions:
             j = []
             k = []
             #       public_departure | actual_departure |
-            if (result[journey][2] != '' and result[journey][3] != '' and 
+            if (result[journey][2] != '' and result[journey][3] != '' and
                     #   public_arrival | actual_arrival
                     result[journey][5] != '' and result[journey][6] != ''):
                 # Get date based on RID
@@ -460,17 +455,17 @@ class Predictions:
         print("Delayed this much>>465>>", delay)
         if (delay[0] == 0) and (delay[1] == 0):
             print(("Your journey is expected to be delayed by less than a "
-                    "minute. You will arrive at " + to_st + " at " +
-                    str(arrival[0]) + ":" + str(arrival[1])))
+                   "minute. You will arrive at " + to_st + " at " +
+                   str(arrival[0]) + ":" + str(arrival[1])))
             return ("Your journey is expected to be delayed by less than a "
                     "minute. You will arrive at " + to_st + " at " +
                     str(arrival[0]) + ":" + str(arrival[1]))
         elif delay[0] == 0:
             print(("You will arrive at " + to_st + " at " +
-                    str(arrival[0]).zfill(2) + ":" + str(arrival[1]).zfill(2) +
-                    ". The journey has been delayed by " +
-                    str(delay[1]).zfill(2) + " minutes and " +
-                    str(delay[2]).zfill(2) + " seconds."))
+                   str(arrival[0]).zfill(2) + ":" + str(arrival[1]).zfill(2) +
+                   ". The journey has been delayed by " +
+                   str(delay[1]).zfill(2) + " minutes and " +
+                   str(delay[2]).zfill(2) + " seconds."))
             return ("You will arrive at " + to_st + " at " +
                     str(arrival[0]).zfill(2) + ":" + str(arrival[1]).zfill(2) +
                     ". The journey has been delayed by " +
