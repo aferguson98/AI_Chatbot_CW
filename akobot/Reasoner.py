@@ -748,7 +748,7 @@ class ChatEngine(KnowledgeEngine):
                 ticket_data[0]
             )
             msg_booking = ("I have set up your booking with our preferred "
-                           "booking partner Chiltern Railways by Arriva! "
+                           "booking partner Chiltern Railways by Arrival! "
                            "Click below to go through to their site to confirm "
                            "your information and complete your booking.")
             msg_final = ("Thanks for using AKOBot today! If I can be of "
@@ -822,8 +822,8 @@ class ChatEngine(KnowledgeEngine):
         if len(self.progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.progress) == 0:
-            self.add_to_message_chain("Great! I can now predict when you'll "
-                                      "arrive. Shouldn't take longer than 5 seconds."
+            self.add_to_message_chain("Great! I can now predict how long your journey "
+                                      "will be delayed. Shouldn't take longer than 5 seconds."
                                       " Please hold on...")
 
     @Rule(Fact(action="delay"),
