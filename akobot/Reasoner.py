@@ -3,7 +3,6 @@ Reasoner.py
 
 Contains classes related to reasoning
 """
-import re
 from datetime import datetime
 from difflib import SequenceMatcher
 
