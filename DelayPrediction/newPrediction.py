@@ -347,12 +347,6 @@ class Predictions:
             prediction[1]).zfill(2) +
                 " minutes and " + str(prediction[2]).zfill(2) + " seconds.")
 
-<<<<<<< HEAD
-pr = Predictions()
-a = pr.display_results("norwich", "diss", "7:30", "4")
-print(a)
-=======
 # pr = Predictions()
 # a = pr.display_results("norwich", "diss", "7:30", "4")
 # print(a)
->>>>>>> Experta_Engine
