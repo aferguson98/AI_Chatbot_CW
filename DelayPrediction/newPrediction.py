@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import sys, os
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
@@ -10,13 +9,8 @@ from sklearn import neighbors
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
-=======
->>>>>>> Experta_Engine
 from datetime import datetime
 from difflib import SequenceMatcher
-
-import pandas as pd
-from sklearn import neighbors
 
 from Database.DatabaseConnector import DBConnection
 
