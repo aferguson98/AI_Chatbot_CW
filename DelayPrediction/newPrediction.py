@@ -1,8 +1,16 @@
-from datetime import datetime
-from difflib import SequenceMatcher
+import sys, os
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
 
+import numpy as np
 import pandas as pd
 from sklearn import neighbors
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPRegressor
+from datetime import datetime
+from difflib import SequenceMatcher
 
 from Database.DatabaseConnector import DBConnection
 
@@ -276,14 +284,20 @@ class Predictions:
 
         X = journeys.drop(['rid', 'arrival_time'], axis=1)
         y = journeys['arrival_time'].values
+        
+        # clf = neighbors.NearestNeighbors(n_neighbors=1)
+        # clf.fit(X)
 
-        clf = neighbors.NearestNeighbors(n_neighbors=1)
-        clf.fit(X)
+        # prediction = clf.kneighbors([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
+        #                                     self.segment_of_day, self.rush_hour]])
+        # prediction = self.convert_time(prediction[0])
 
-        prediction = clf.kneighbors(
-            [[dep_time_s, delay_s, self.day_of_week, self.weekend,
-              self.segment_of_day, self.rush_hour]])
-        prediction = self.convert_time(prediction[0])
+        clf = RandomForestRegressor(n_estimators = 100)
+        clf.fit(X, y)
+
+        prediction = clf.predict([[dep_time_s, delay_s, self.day_of_week, self.weekend, 
+                                            self.segment_of_day, self.rush_hour]])
+        prediction = self.convert_time([prediction])
 
         print("The total delay of the journey will be " + str(
             prediction[1]).zfill(2) +
