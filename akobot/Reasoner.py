@@ -3,7 +3,6 @@ Reasoner.py
 
 Contains classes related to reasoning
 """
-import re
 from datetime import datetime
 from difflib import SequenceMatcher
 
@@ -28,8 +27,9 @@ TokenDictionary = {
     "no": [{"LOWER": {"IN": ["no", "nope", "n", "nah", "na", "👎"]}}],
     "return": [{"LEMMA": {"IN": ["return", "returning"]}}],
     "single": [{"LEMMA": {"IN": ["single", "one-way"]}}],
-    "dep_delay" : [{"LIKE_NUM" : True}],
-
+    "dep_delay": [{"LIKE_NUM": True}],
+    "num_adults": [{"LIKE_NUM": True}, {"LEMMA": "adult"}],
+    "num_children": [{"LIKE_NUM": True}, {"LEMMA": "child"}]
 }
 
 MultiTokenDictionary = {
@@ -356,8 +356,8 @@ class ChatEngine(KnowledgeEngine):
         if search_station:
             try:
                 station = self.find_station(search_station)
-                if (token in self.knowledge and
-                        station[station_name] == self.knowledge[token]):
+                if (op_token in self.knowledge and
+                        station[station_name] == self.knowledge[op_token]):
                     request_tag = "{REQ:" + st_type + "}"
                     msg = ("{}The departure and arrival station cannot be the "
                            "same. Please enter a new {} station")
@@ -461,7 +461,6 @@ class ChatEngine(KnowledgeEngine):
                     tags += ("{DLY:" + date_time.strftime("%H_%M") + "}")
                     self.progress = self.progress.replace("dt_", "")
             else:
-# ASK ALEJANDRO IF DELAY MINUTES NEEDS TO BE ADDED HERE?
                 if st_type == "DEP" or st_type == "DLY":
                     request_tag = "{REQ:DDT}"
                     question_form = "departing"
@@ -583,16 +582,36 @@ class ChatEngine(KnowledgeEngine):
             )
 
         if "{TAG:ADT}" in message_text:
-            adults = message_text.replace("{TAG:ADT}", "")
+            adults_msg = message_text.replace("{TAG:ADT}", "")
+            adults_doc = self.nlp_engine.process(adults_msg)
+            adults = str(self.get_matches(adults_doc,
+                                          TokenDictionary['dep_delay']))
             self.declare(Fact(no_adults=int(adults)))
             self.progress = self.progress.replace("na_", "")
             tags += "{ADT:" + adults + "}"
+        else:
+            adults = self.get_matches(doc, TokenDictionary['num_adults'])
+            if adults:
+                adults = str(adults[0])
+                self.declare(Fact(no_adults=int(adults)))
+                self.progress = self.progress.replace("na_", "")
+                tags += "{ADT:" + adults + "}"
 
-        elif "{TAG:CHD}" in message_text:
-            children = message_text.replace("{TAG:CHD}", "")
+        if "{TAG:CHD}" in message_text:
+            children_msg = message_text.replace("{TAG:CHD}", "")
+            children_doc = self.nlp_engine.process(children_msg)
+            children = str(self.get_matches(children_doc,
+                                            TokenDictionary['dep_delay']))
             self.declare(Fact(no_children=int(children)))
             self.progress = self.progress.replace("nc_", "")
             tags += "{CHD:" + children + "}"
+        else:
+            children = self.get_matches(doc, TokenDictionary['num_children'])
+            if children:
+                children = str(children[0])
+                self.declare(Fact(no_children=int(children)))
+                self.progress = self.progress.replace("nc_", "")
+                tags += "{CHD:" + children + "}"
 
         self.add_to_message_chain(tags, priority=7)
 
@@ -867,7 +886,6 @@ class ChatEngine(KnowledgeEngine):
           NOT(Fact(delay_time_received=True)),
           salience=95)
     def delay_time(self):
-        print("Asking for delay time")
         self.add_to_message_chain("{REQ:DDL}How long are you delayed?",
                                   1)
         self.declare(Fact(extra_info_requested=True))
@@ -881,13 +899,11 @@ class ChatEngine(KnowledgeEngine):
         for f in self.facts:
             for f_id, val in self.facts[f].items():
                 journey_data[f_id] = val
-        print(journey_data)
         pr = Predictions()
         try:
-            delay_prediction = pr.display_results(journey_data['depart'],
-                                                journey_data['arrive'],
-                                                journey_data['departure_date'],
-                                                journey_data['departure_delay'])
+            delay_prediction = pr.display_results(
+                journey_data['depart'], journey_data['arrive'],
+                journey_data['departure_date'], journey_data['departure_delay'])
         except Exception as e:
             delay_prediction = e
         msg_final = ("Thanks for using AKOBot today! If I can be of "
