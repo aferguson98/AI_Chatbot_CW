@@ -69,17 +69,15 @@ class Predictions:
         if x in self.stations:
             return self.stations[x]
         else:
-            for s in (self.stations):
+            for s in self.stations:
                 ratio = SequenceMatcher(None, x, s).ratio() * 100
                 if ratio >= 60:  # Need to check what value is acceptable
                     similar = s
-                    print()
                     print("The city you've provided has not been found. "
                           "Closest match to " + station + "  is: " + s.upper())
             if similar == '':
-                raise Exception(
-                    ("No similar cities to " + station + " have been found. "
-                                                         "Please type again the station"))
+                raise Exception("No similar cities to " + station + " have "
+                                "been found. Please type again the station")
 
             return similar
 
