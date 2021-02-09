@@ -49,7 +49,7 @@ def process_user_input():
             message = this_chat.add_message("human",
                                             user_input,
                                             datetime.datetime.now())
-        except Exception as e:
+        except StationNotFoundError as e:
             print(e)
             message = ["Sorry! There has been an issue with this chat, please "
                        "reload the page to start a new chat.", ["Reload Page"],

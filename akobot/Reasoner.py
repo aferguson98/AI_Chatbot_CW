@@ -533,8 +533,8 @@ class ChatEngine(KnowledgeEngine):
                 # likely to be a delay prediction
                 self.add_to_message_chain("Using the latest train data, I can "
                                           "predict how long you'll be delayed."
-                                          " <br><i>Only available from Norwich to "
-                                          "London Liverpool Street and "
+                                          "<br><i>Only available from Norwich "
+                                          "to London Liverpool Street and "
                                           "intermediate stations.</i>",
                                           req_response=False)
                 self.progress = "dl_al_dt_dd_"
@@ -728,8 +728,9 @@ class ChatEngine(KnowledgeEngine):
         self.add_to_message_chain(
             "{COMP:True}Great! I've got all I need to search for the best "
             "fare. This may take up to 20 seconds. To start the search, check "
-            "details below look correct and press Start search, if something "
-            "isn't quite right please click to start a new chat.<br/>",
+            "the details below look correct and press Start search. If "
+            "something isn't quite right please click to start a new chat."
+            "<br/>",
             suggestions=["Start search &#x1F50D;",
                          "{RELOAD}Not quite right &#8635;"]
         )
@@ -766,14 +767,16 @@ class ChatEngine(KnowledgeEngine):
                 ticket_data[2],
                 ticket_data[0]
             )
+            msg2 = ticket_data[3]
             msg_booking = ("I have set up your booking with our preferred "
-                           "booking partner Chiltern Railways by Arrival! "
+                           "booking partner Chiltern Railways by Arriva! "
                            "Click below to go through to their site to confirm "
                            "your information and complete your booking.")
             msg_final = ("Thanks for using AKOBot today! If I can be of "
                          "anymore assistance, click the button below to start "
                          "a new chat")
             self.add_to_message_chain(msg, 1, req_response=False)
+            self.add_to_message_chain(msg2, req_response=False)
             self.add_to_message_chain(msg_booking,
                                       suggestions=[
                                           "{BOOK:" + url + "}Book now &raquo;",
@@ -781,7 +784,7 @@ class ChatEngine(KnowledgeEngine):
                                       ])
             self.add_to_message_chain(msg_final,
                                       suggestions=["Start a new chat"])
-        except Exception:
+        except StationNotFoundError:
             msg = ("Sorry, there are no available tickets between these "
                    "stations at this time. I'd be happy to try again for you "
                    "with a different combination of stations or times.")
@@ -831,7 +834,8 @@ class ChatEngine(KnowledgeEngine):
         if "{TAG:DDL}" in message_text:
             dep_delay = message_text.replace("{TAG:DDL}", "")
             dep_delay_doc = self.nlp_engine.process(dep_delay)
-            dep_delay_doc = str(self.get_matches(dep_delay_doc, TokenDictionary['dep_delay']))
+            dep_delay_doc = str(self.get_matches(dep_delay_doc,
+                                                 TokenDictionary['dep_delay']))
             self.declare(Fact(departure_delay = int(dep_delay_doc)))
             self.progress = self.progress.replace("dd_", "")
             tags += "{DDL:" + str(dep_delay_doc) + "}"
@@ -841,9 +845,9 @@ class ChatEngine(KnowledgeEngine):
         if len(self.progress) != 0 and extra_info_appropriate:
             self.modify(f2, extra_info_req=True)
         elif len(self.progress) == 0:
-            self.add_to_message_chain("Great! I can now predict how long your journey "
-                                      "will be delayed. Shouldn't take longer than 5 seconds."
-                                      " Please hold on...")
+            self.add_to_message_chain("Great! I can now predict how long your "
+                                      "journey will be delayed. This won't "
+                                      "take longer than 5 seconds.")
 
     @Rule(Fact(action="delay"),
           Fact(extra_info_req=True),
