@@ -356,8 +356,8 @@ class ChatEngine(KnowledgeEngine):
         if search_station:
             try:
                 station = self.find_station(search_station)
-                if (token in self.knowledge and
-                        station[station_name] == self.knowledge[token]):
+                if (op_token in self.knowledge and
+                        station[station_name] == self.knowledge[op_token]):
                     request_tag = "{REQ:" + st_type + "}"
                     msg = ("{}The departure and arrival station cannot be the "
                            "same. Please enter a new {} station")
