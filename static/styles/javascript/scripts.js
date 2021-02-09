@@ -193,8 +193,10 @@ function writeMessage(message) {
 }
 
 async function synthesizeSpeech(text) {
+    text = text.replace("AKOBot", "akobot")
+    text = text.replace("<br/>", "").replace("<br>", "").replace("</i>", "").replace("<i>", "")
     let ssml = `<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
-                <voice name="en-GB-RyanNeural">${text.replace("AKOBot", "akobot")}</voice></speak>`
+                <voice name="en-GB-RyanNeural">${text}</voice></speak>`
     const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
     audioConfig.privDestination.privAudio.addEventListener("ended", function (){speaking=false})
