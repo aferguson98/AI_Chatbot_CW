@@ -13,7 +13,7 @@ let tag_req_map = {
     "CHD": "{TAG:CHD}",
     "DDL": "{TAG:DDL}"
 }
-let is_book_ticket = false;
+let isBookTicket = false;
 let speaking = false;
 
 const sdk = SpeechSDK
@@ -31,20 +31,15 @@ $(function () {
         console.log("Making a AJAX call");
         e.preventDefault();
         let message = getMessageText();
-        if (message.includes('book a ticket')){
-            is_book_ticket = true;
-        }
         sendInputData(tag_message + " " + message);
         sendMessage(message);
     });
 
     $(window).resize(function(){
-        if (is_book_ticket === true){
+        if (isBookTicket){
             if ($(window).width() > 1400) {
                 $('main').css('width', 'calc(100% - 400px)');
                 $('.side-bar').css("transform", "scaleX(1)");
-                $('.content.active').slideUp(500);
-                $('.content.inactive').slideUp(500);
                 $('#booking .active').delay(500).slideDown(500);
                 $('#predict .inactive').delay(500).slideDown(500);
                 $('#support .inactive').delay(500).slideDown(500);
@@ -120,6 +115,9 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
                 $('#booking .active').delay(500).slideDown(500);
                 $('#predict .inactive').delay(500).slideDown(500);
                 $('#support .inactive').delay(500).slideDown(500);
+            }
+            if(messageObject.text.includes("Ok great, let's get your booking started!")){
+                isBookTicket = true;
             }
             if(messageObject.text.includes("{REQ:DEP}")){
                 navigator.geolocation.getCurrentPosition(getNearestStations);
