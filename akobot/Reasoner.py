@@ -784,7 +784,7 @@ class ChatEngine(KnowledgeEngine):
                                       ])
             self.add_to_message_chain(msg_final,
                                       suggestions=["Start a new chat"])
-        except StationNotFoundError:
+        except Exception:
             msg = ("Sorry, there are no available tickets between these "
                    "stations at this time. I'd be happy to try again for you "
                    "with a different combination of stations or times.")
