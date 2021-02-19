@@ -13,7 +13,7 @@ let tag_req_map = {
     "CHD": "{TAG:CHD}",
     "DDL": "{TAG:DDL}"
 }
-let is_book_ticket = false;
+let isBookTicket = false;
 let speaking = false;
 
 const sdk = SpeechSDK
@@ -31,20 +31,15 @@ $(function () {
         console.log("Making a AJAX call");
         e.preventDefault();
         let message = getMessageText();
-        if (message.includes('book a ticket')){
-            is_book_ticket = true;
-        }
         sendInputData(tag_message + " " + message);
         sendMessage(message);
     });
 
     $(window).resize(function(){
-        if (is_book_ticket === true){
+        if (isBookTicket){
             if ($(window).width() > 1400) {
                 $('main').css('width', 'calc(100% - 400px)');
                 $('.side-bar').css("transform", "scaleX(1)");
-                $('.content.active').slideUp(500);
-                $('.content.inactive').slideUp(500);
                 $('#booking .active').delay(500).slideDown(500);
                 $('#predict .inactive').delay(500).slideDown(500);
                 $('#support .inactive').delay(500).slideDown(500);
@@ -121,6 +116,9 @@ function sendInputData(user_message, isFirst=false, isSystem="false") {
                 $('#predict .inactive').delay(500).slideDown(500);
                 $('#support .inactive').delay(500).slideDown(500);
             }
+            if(messageObject.text.includes("Ok great, let's get your booking started!")){
+                isBookTicket = true;
+            }
             if(messageObject.text.includes("{REQ:DEP}")){
                 navigator.geolocation.getCurrentPosition(getNearestStations);
             }
@@ -193,8 +191,10 @@ function writeMessage(message) {
 }
 
 async function synthesizeSpeech(text) {
+    text = text.replace("AKOBot", "akobot")
+    text = text.replace("<br/>", "").replace("<br>", "").replace("</i>", "").replace("<i>", "")
     let ssml = `<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-GB">
-                <voice name="en-GB-RyanNeural">${text.replace("AKOBot", "akobot")}</voice></speak>`
+                <voice name="en-GB-RyanNeural">${text}</voice></speak>`
     const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
     audioConfig.privDestination.privAudio.addEventListener("ended", function (){speaking=false})
